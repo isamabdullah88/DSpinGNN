@@ -2,10 +2,9 @@ import torch
 import torch.nn as nn
 from torch_geometric.nn import global_add_pool
 
-from model.gaussian import gaussian_expand_torch
 from .embedding import AtomEmbedding
 from .interaction import InteractionBlock   
-from .output import OutputBlock
+from .outblock import OutputBlock
 
 
 def force(energy, pos):
