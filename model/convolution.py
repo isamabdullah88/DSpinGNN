@@ -23,8 +23,6 @@ def gen_instructions(irreps_in, irreps_edge, irreps_out):
                         # Valid Depthwise connection!
                         instructions.append((i, j, k, 'uvu', True))
 
-    # print(f"Generated {len(instructions)} valid instructions.")
-    # print(instructions)
     return instructions
 
 def ploynomial_cutoff(x, rcut):
@@ -104,13 +102,13 @@ class Convolution(nn.Module):
 
         neighbors = nodes[src]
 
-        posvec = pos[src] - pos[dst]
+        radvec = pos[src] - pos[dst]
 
-        dist = posvec.norm(dim=1, keepdim=False)
+        dist = radvec.norm(dim=1, keepdim=False)
 
         radial = self.radialMLP(dist)
 
-        ylm = o3.spherical_harmonics(l=[0, 1, 2], x=posvec, normalize=True, normalization='component')
+        ylm = o3.spherical_harmonics(l=[0, 1, 2], x=radvec, normalize=True, normalization='component')
 
         mxdneighbors = self.linear1(neighbors)
 
