@@ -42,11 +42,10 @@ def dist(pos1, pos2):
 
 
 
-def bgraph(z, pos, rcut = 5.0):
+def loopgraph(z, pos, rcut = 5.0):
     """
     Builds a graph with periodic boundary conditions from scratch including ghost atoms
     """
-    graphdict = {}
 
     edges = []
     tshifts = []
@@ -60,7 +59,6 @@ def bgraph(z, pos, rcut = 5.0):
                 continue
 
             d = dist(p, q)
-            # print('dist: ', d)
 
             if d > 0 and d <= rcut:
                 edges.append([i, j])
@@ -73,7 +71,6 @@ def bgraph(z, pos, rcut = 5.0):
 
             for k, q in enumerate([cr1p, cr2p, It1p, It2p, It3p, Ib1p, Ib2p, Ib3p]):
                 d = dist(p, q)
-                # print('dist: ', d)
 
                 if d > 0 and d <= rcut:
                     edges.append([i, k])
@@ -81,25 +78,7 @@ def bgraph(z, pos, rcut = 5.0):
                     edges.append([k, i])
                     tshifts.append([-nx, -ny, 0])
 
-    print('edges: ', edges)
-    print('tshifts: ', tshifts)
     return edges, tshifts
-
-
-N = 8
-z = torch.tensor(np.array([24, 24, 53, 53, 53, 53, 53, 53]))
-# print(z)
-
-pos = torch.tensor(np.array([cr1, cr2, It1, It2, It3, Ib1, Ib2, Ib3]))
-print('pos: ', pos.shape)
-
-cell = torch.stack([veca, vecb, vecc])
-print('cell: ', cell.shape)
-print('cell: ', cell)
-
-
-# batch = [0]*8 + [1]*8 + [2]*8 + [3]*8
-# print(batch)
 
 # rcut = 6.0
 # edges, tshifts = bgraph(z, pos, rcut)
@@ -108,49 +87,64 @@ print('cell: ', cell)
 
 # verify_against_ase(pos, cell, z, torch.tensor(edges).t().contiguous(), torch.tensor(tshifts), cutoff=rcut)
 
-C = 9
-mx, my = torch.meshgrid(torch.tensor([-1.0, 0, 1.0], dtype=torch.float32), torch.tensor([-1.0, 0, 1.0], dtype=torch.float32))
-# print(mx.flatten().shape)
-# print(my.shape)
+def tensorgraph(pos, cell, rcut=5.0):
+    """
+    Builds a graph with periodic boundary conditions from scratch including ghost atoms using PyTorch tensors
+    """
+    N = 8
+    
+    mx, my = torch.meshgrid(torch.tensor([-1, 0, 1], dtype=torch.int64), torch.tensor([-1, 0, 1], dtype=torch.int64), indexing='ij')
+    mz = torch.zeros_like(mx)
+    print('mx: ', mx.dtype, mx.shape)
+    print('my: ', my.dtype, my.shape)
+    print('mz: ', mz.dtype, mz.shape)
 
-# print('mx: ', mx.flatten())
-# print('my: ', my.flatten())
+    stack = torch.stack((mx.flatten(), my.flatten(), mz.flatten()), axis=1)
+    print('stack: ', stack.dtype, stack.shape)
+    print('stack: ', [tuple(row.tolist()) for row in stack])
+    
+    translations = torch.mm(stack.to(torch.float32), cell)
+    print('\npositions: \n', [tuple(row.tolist()) for row in pos])
+    print('\ntranslations: \n', [tuple(row.tolist()) for row in translations])
 
-stack = torch.stack((mx.flatten(), my.flatten(), torch.zeros(9)), axis=1)
-print('stack: ', stack.shape)
-# print('stack: ', stack)
+    ghostpos = pos.unsqueeze(0) + translations.unsqueeze(1)
+    ghostpos = ghostpos.view(-1, 3)
+    print('\nghostpos: \n', [tuple(row.tolist()) for row in ghostpos])
 
-translations = torch.mm(stack, cell)
+    dist = torch.cdist(ghostpos, pos)
+    print('\ndist: ', dist.dtype, dist.shape)
 
-print('translations: ', translations.shape)
-# print('translations: ', translations)
+    mask = (dist > 1e-4) & (dist <= rcut)
 
-ghostpos = pos.unsqueeze(0) + translations.unsqueeze(1)
-ghostpos = ghostpos.view(-1, 3)
+    ghostidxs, atomidxs = torch.where(mask)
+    print('\nindex matrix: \n', [(i, j) for i, j in zip(ghostidxs.tolist(), atomidxs.tolist())])
 
-print('ghostpos: ', ghostpos.shape)
+    srcidxs = atomidxs
+    dstidxs = ghostidxs % N
+    cellidxs = ghostidxs // N
+    print('\nsrcidxs: ', srcidxs)
+    print('\ndstidxs: ', dstidxs)
+    print('\ncellidxs: ', cellidxs)
 
-dist = torch.cdist(ghostpos, pos)
+    edges = torch.stack((srcidxs, dstidxs), axis=1)
+    print('\nedges: ', edges.dtype, edges.shape)
+    print('\nedges: ', [tuple(row.tolist()) for row in edges])
+    shifts = stack[cellidxs]
+    print('\nshifts: ', [tuple(row.tolist()) for row in shifts])
+    # exit()
 
-print('dist: ', dist.shape)
-# print('dist: ', dist)
+    return edges.t(), shifts
 
+
+from testedges import verify_against_ase
+
+z = torch.tensor([24, 24, 51, 51, 51, 51, 51, 51], dtype=torch.int64)
+pos = torch.tensor(np.array([cr1, cr2, It1, It2, It3, Ib1, Ib2, Ib3]), dtype=torch.float32)
+cell = torch.stack([veca, vecb, vecc])
 rcut = 5.0
-mask = (dist > 1e-4) & (dist <= rcut)
-print('mask: ', mask.shape)
 
-ghostidxs, atomidxs = torch.where(mask)
-print('atomidxs: ', atomidxs.shape)
-print('ghostidxs: ', ghostidxs.shape)
-print('atomidxs: ', atomidxs)
-print('ghostidxs: ', ghostidxs)
+edges, tshifts = tensorgraph(pos, cell, rcut=rcut)
+# print('edges: ', [tuple(edge) for edge in edges.tolist()])
+# print('tshifts: ', [tuple(shift) for shift in tshifts.tolist()])
 
-srcidxs = ghostidxs
-dstidxs = atomidxs % N
-cellidxs = ghostidxs // C
-
-edges = torch.stack((srcidxs, dstidxs), axis=1)
-shifts = stack[cellidxs]
-
-print('edges: ', edges.shape)
-print('shifts: ', shifts.shape)
+verify_against_ase(pos, cell, z, edges, tshifts, cutoff=rcut)
