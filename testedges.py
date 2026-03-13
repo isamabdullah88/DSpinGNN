@@ -14,6 +14,9 @@ def verify_against_ase(pos, cell, z, custom_edge_index, custom_edge_shift, cutof
     # 2. Get the ground truth from ASE
     # 'i' = source, 'j' = target, 'S' = shift vector
     i_ase, j_ase, S_ase = neighbor_list('ijS', atoms, cutoff)
+    print('\nASE edges (i, j): \n', list(zip(i_ase.tolist(), j_ase.tolist())))
+    print('\nShift vectors from ASE: \n', [tuple(s.tolist()) for s in S_ase])
+
     
     # 3. Create sets of tuples for unordered comparison
     # We format each edge as: (source, target, shift_x, shift_y, shift_z)
@@ -21,7 +24,8 @@ def verify_against_ase(pos, cell, z, custom_edge_index, custom_edge_shift, cutof
     for idx in range(len(i_ase)):
         edge = (i_ase[idx], j_ase[idx], S_ase[idx][0], S_ase[idx][1], S_ase[idx][2])
         ase_edges.add(edge)
-        
+
+    # print('ASE edges: ', ase_edges) 
     custom_edges = set()
     for idx in range(custom_edge_index.shape[1]):
         i = custom_edge_index[0, idx].item()
@@ -30,7 +34,7 @@ def verify_against_ase(pos, cell, z, custom_edge_index, custom_edge_shift, cutof
         custom_edges.add((i, j, int(sx), int(sy), int(sz)))
         
     # 4. Grade the results!
-    print(f"Total Edges Found by ASE: {len(ase_edges)}")
+    print(f"\n\nTotal Edges Found by ASE: {len(ase_edges)}")
     print(f"Total Edges Found by Algorithm: {len(custom_edges)}")
     
     missing_edges = ase_edges - custom_edges
@@ -39,7 +43,7 @@ def verify_against_ase(pos, cell, z, custom_edge_index, custom_edge_shift, cutof
     if len(missing_edges) == 0 and len(extra_edges) == 0:
         print("✅ SUCCESS! The algorithm perfectly matches ASE!")
     else:
-        print("❌ FAILED. Mismatch detected.")
+        print("\n\n❌ FAILED. Mismatch detected.")
         if len(missing_edges) > 0:
             print(f"   Missed {len(missing_edges)} edges (e.g., {list(missing_edges)[0]})")
         if len(extra_edges) > 0:
