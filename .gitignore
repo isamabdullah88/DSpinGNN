@@ -6,7 +6,6 @@ __pycache__/
 .DS_Store
 
 runs/
-Data/
 checkpoints*/
 Presentation/
 wandb/
