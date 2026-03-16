@@ -15,6 +15,7 @@ class AtomEmbedding(nn.Module):
 
     def forward(self, z: torch.Tensor) -> torch.Tensor:
         embeds = self.embedding(z)
+        # print('embeds: ', embeds.shape)
 
         linear = self.linear(embeds)
         
