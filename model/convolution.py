@@ -1,4 +1,5 @@
 
+import torch
 import torch.nn as nn
 import e3nn.math as emath
 from e3nn import o3
@@ -91,18 +92,31 @@ class Convolution(nn.Module):
         self.radialMLP = Radial(self.numbasis, numweights, self.rcut)
 
 
-    def forward(self, nodes, pos, batch):
+    def forward(self, nodes, batch):
 
-        if self.mps:
-            edgeidxs = radius_graph(pos.cpu(), r=self.rcut, batch=batch.cpu(), max_num_neighbors=100).to("mps")
-        else:
-            edgeidxs = radius_graph(pos, r=self.rcut, batch=batch, max_num_neighbors=100)
+        # if self.mps:
+        #     edgeidxs = radius_graph(pos.cpu(), r=self.rcut, batch=batch.cpu(), max_num_neighbors=100).to("mps")
+        # else:
+        #     edgeidxs = radius_graph(pos, r=self.rcut, batch=batch, max_num_neighbors=100)
 
-        src, dst = edgeidxs
+        # print('edge idx: ', batch.edge_index.shape)
+        src, dst = batch.edge_index
 
         neighbors = nodes[src]
 
-        radvec = pos[src] - pos[dst]
+        graphidxs = batch.batch[src]
+        # print('graphidxs: ', graphidxs.shape)
+        edge_shifts = batch.edge_shift[graphidxs]
+        # print('edge_shifts: ', edge_shifts.shape)
+        cell = batch.cell.view(-1, 3, 3)
+        # print('cell: ', cell.shape)
+        bcell = cell[graphidxs]
+        # print('bcell: ', bcell.shape)
+
+        tvec = torch.einsum('ecp, ep -> ep', bcell, edge_shifts)
+        # print('tvec: ', tvec.shape)
+
+        radvec = batch.pos[src] - batch.pos[dst] + tvec
 
         dist = radvec.norm(dim=1, keepdim=False)
 
