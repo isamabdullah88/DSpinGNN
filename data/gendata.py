@@ -41,24 +41,26 @@ class DataGenerator:
         pos = torch.tensor(atomsout.get_positions(), dtype=torch.float32)
         energy = atomsout.get_potential_energy()
         forces = atomsout.get_forces()
+        cell = torch.tensor(atomsout.get_cell(), dtype=torch.float32)
 
         #  Parse TB2J outputs for this strain
         tb2jpath = os.path.join(wkdir, f"Strain_{stntype}_{stnvalue:.4f}", "tmp/TB2J_results/Multibinit", "exchange.xml")
         if not os.path.exists(tb2jpath):
             print(f"TB2J output file not found for strain {stnvalue:.4f} at {tb2jpath}. Skipping TB2J parsing...")
             
-        edges, shifts = self.cgraph.tensorgraph(rcut = self.rcut)
+        edgeidxs, edgeshifts = self.cgraph.tensorgraph(rcut = self.rcut)
         cr_edges, exchangejs, cr_shifts = self.egraph.graph(tb2jpath)
 
         data = Data(
             z=z,
             pos=pos,
+            cell=cell,
             y_energy=torch.tensor([energy], dtype=torch.float32),
             y_forces=torch.tensor(forces, dtype=torch.float32),
-            edges=edges,
-            shifts=shifts,
-            cr_edges=cr_edges,
-            cr_shifts=cr_shifts,
+            edge_index=edgeidxs,
+            edge_shift=edgeshifts,
+            cr_edge_index=cr_edges,
+            cr_edge_shift=cr_shifts,
             exchangejs=exchangejs
         )
 
@@ -86,8 +88,8 @@ if __name__ == "__main__":
     datasetpath = "./DataSets/GNN/ExchangeGNN.pth"
 
 
-    stntypes = ['Uniaxial_X']
-    strains = [np.linspace(-0.15, 0.15, 21)]
+    stntypes = ['Uniaxial_X', 'Biaxial']
+    strains = [np.linspace(-0.15, 0.15, 21), np.linspace(-0.12, 0.12, 15)]
     datagen = DataGenerator(rcut=5.0, stntypes=stntypes, strains=strains, phase='FM')
 
     dataset = datagen.generate(datasetdir=datasetdir)
