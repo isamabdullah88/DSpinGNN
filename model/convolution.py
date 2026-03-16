@@ -106,17 +106,17 @@ class Convolution(nn.Module):
 
         graphidxs = batch.batch[src]
         # print('graphidxs: ', graphidxs.shape)
-        edge_shifts = batch.edge_shift[graphidxs]
+        # edge_shifts = batch.edge_shift[graphidxs]
         # print('edge_shifts: ', edge_shifts.shape)
         cell = batch.cell.view(-1, 3, 3)
         # print('cell: ', cell.shape)
         bcell = cell[graphidxs]
         # print('bcell: ', bcell.shape)
 
-        tvec = torch.einsum('ecp, ep -> ep', bcell, edge_shifts)
+        tvec = torch.einsum('ecp, ep -> ep', bcell, batch.edge_shift)
         # print('tvec: ', tvec.shape)
 
-        radvec = batch.pos[src] - batch.pos[dst] + tvec
+        radvec = batch.pos[dst] - batch.pos[src] + tvec
 
         dist = radvec.norm(dim=1, keepdim=False)
 
