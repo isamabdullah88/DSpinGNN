@@ -45,7 +45,7 @@ def evaluate(model, dataloader, device):
         # to ensure we don't accidentally train)
         
         # A. Run Model
-        energy = model(batch.z, pos, batch.batch)
+        energy = model(batch)
 
         forces = force(energy, pos)
         
@@ -65,13 +65,13 @@ def evaluate(model, dataloader, device):
         
         # Energy Error (Per Molecule)
         # Shape: (Batch_Size, 1)
-        e_err = torch.abs(energy.detach() - batch.y)
+        e_err = torch.abs(energy.detach() - batch.y_energy)
         mae_energy_sum += e_err.sum().item()
         
         # Force Error (Per Atom Component)
         # Shape: (Total_Atoms, 3)
         # We average over all 3 dimensions (x,y,z) and all atoms
-        f_err = torch.abs(forces.detach() - batch.forces)
+        f_err = torch.abs(forces.detach() - batch.y_forces)
         mae_force_sum += f_err.sum().item()
         
         # 4. Update Counts
