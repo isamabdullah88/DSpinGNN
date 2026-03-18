@@ -8,6 +8,11 @@ import time
 from data import getdata
 
 import torch
+import logging
+
+# logger = logging.getLogger()
+# logging.basicConfig(level=logging.INFO)
+# logger = logging.getLogger(__name__)
 
 def evaluate(model, dataloader, device):
     """
@@ -24,7 +29,6 @@ def evaluate(model, dataloader, device):
     total_molecules = 0
     total_atoms = 0
     
-    print("Starting evaluation...")
     
     # We do NOT need gradients for metrics, so we turn them off to save memory
     # BUT: We still need 'create_graph=True' inside the force calculation 
@@ -45,7 +49,7 @@ def evaluate(model, dataloader, device):
         # to ensure we don't accidentally train)
         
         # A. Run Model
-        energy = model(batch.z, pos, batch.batch)
+        energy = model(batch)
 
         forces = force(energy, pos)
         
@@ -65,13 +69,13 @@ def evaluate(model, dataloader, device):
         
         # Energy Error (Per Molecule)
         # Shape: (Batch_Size, 1)
-        e_err = torch.abs(energy.detach() - batch.y)
+        e_err = torch.abs(energy.detach() - batch.y_energy)
         mae_energy_sum += e_err.sum().item()
         
         # Force Error (Per Atom Component)
         # Shape: (Total_Atoms, 3)
         # We average over all 3 dimensions (x,y,z) and all atoms
-        f_err = torch.abs(forces.detach() - batch.forces)
+        f_err = torch.abs(forces.detach() - batch.y_forces)
         mae_force_sum += f_err.sum().item()
         
         # 4. Update Counts
@@ -83,13 +87,6 @@ def evaluate(model, dataloader, device):
     mae_energy = mae_energy_sum / total_molecules
     mae_force = mae_force_sum / total_atoms
     
-    print("="*30)
-    print(f"RESULTS (Validation Set)")
-    print("="*30)
-    print(f"Energy MAE: {mae_energy:.5f} eV")
-    print(f"Force  MAE: {mae_force:.5f} eV/A")
-    print("="*30)
-    
     return mae_energy, mae_force
 
 """
@@ -97,7 +94,7 @@ def evaluate(model, dataloader, device):
 checkpoint_path = "checkpoints/model_E181.pt"
 
 device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
-print(f"Using device: {device}")
+logger.info(f"Using device: {device}")
 
 dfeatdim = 25
 numatoms = 30

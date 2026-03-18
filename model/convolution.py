@@ -1,4 +1,5 @@
 
+import torch
 import torch.nn as nn
 import e3nn.math as emath
 from e3nn import o3
@@ -23,8 +24,6 @@ def gen_instructions(irreps_in, irreps_edge, irreps_out):
                         # Valid Depthwise connection!
                         instructions.append((i, j, k, 'uvu', True))
 
-    # print(f"Generated {len(instructions)} valid instructions.")
-    # print(instructions)
     return instructions
 
 def ploynomial_cutoff(x, rcut):
@@ -93,24 +92,37 @@ class Convolution(nn.Module):
         self.radialMLP = Radial(self.numbasis, numweights, self.rcut)
 
 
-    def forward(self, nodes, pos, batch):
+    def forward(self, nodes, batch):
 
-        if self.mps:
-            edgeidxs = radius_graph(pos.cpu(), r=self.rcut, batch=batch.cpu(), max_num_neighbors=100).to("mps")
-        else:
-            edgeidxs = radius_graph(pos, r=self.rcut, batch=batch, max_num_neighbors=100)
+        # if self.mps:
+        #     edgeidxs = radius_graph(pos.cpu(), r=self.rcut, batch=batch.cpu(), max_num_neighbors=100).to("mps")
+        # else:
+        #     edgeidxs = radius_graph(pos, r=self.rcut, batch=batch, max_num_neighbors=100)
 
-        src, dst = edgeidxs
+        # print('edge idx: ', batch.edge_index.shape)
+        src, dst = batch.edge_index
 
         neighbors = nodes[src]
 
-        posvec = pos[src] - pos[dst]
+        graphidxs = batch.batch[src]
+        # print('graphidxs: ', graphidxs.shape)
+        # edge_shifts = batch.edge_shift[graphidxs]
+        # print('edge_shifts: ', edge_shifts.shape)
+        cell = batch.cell.view(-1, 3, 3)
+        # print('cell: ', cell.shape)
+        bcell = cell[graphidxs]
+        # print('bcell: ', bcell.shape)
 
-        dist = posvec.norm(dim=1, keepdim=False)
+        tvec = torch.einsum('ecp, ep -> ep', bcell, batch.edge_shift)
+        # print('tvec: ', tvec.shape)
+
+        radvec = batch.pos[dst] - batch.pos[src] + tvec
+
+        dist = radvec.norm(dim=1, keepdim=False)
 
         radial = self.radialMLP(dist)
 
-        ylm = o3.spherical_harmonics(l=[0, 1, 2], x=posvec, normalize=True, normalization='component')
+        ylm = o3.spherical_harmonics(l=[0, 1, 2], x=radvec, normalize=True, normalization='component')
 
         mxdneighbors = self.linear1(neighbors)
 

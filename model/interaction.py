@@ -18,12 +18,16 @@ class InteractionBlock(nn.Module):
 
         self.gate = NonLinearGate(l0dim, l1dim, l2dim)
 
-    def forward(self, nodes: torch.Tensor, pos: torch.Tensor, batch: torch.Tensor) -> torch.Tensor:
+    def forward(self, nodes: torch.Tensor, batch: torch.Tensor) -> torch.Tensor:
 
         self_interacted1 = self.owninteraction1(nodes)
 
-        convolved = self.convolution(self_interacted1, pos, batch)
+        # print('nodes: ', nodes.shape)
+        # print('edgeidxs: ', edgeidxs.shape)
+        # print('edgeshifts: ', edgeshifts.shape)
+        # print('cell: ', cell.shape)
 
+        convolved = self.convolution(self_interacted1, batch)
         self_interacted2 = self.owninteraction2(convolved)
 
         mixed = nodes + self_interacted2

@@ -43,7 +43,7 @@ def initialize_shift_scale(model, data_loader):
     
     # Define Map: Aspirin (H=1, C=6, O=8) -> (0, 1, 2)
     # This prevents the "All Zeros" bug
-    z_map = {1: 0, 6: 1, 7: 2, 8: 2} # Adjust '8' to 2 or 3 based on your model!
+    z_map = {24: 0, 53: 1} # Adjust '8' to 2 or 3 based on your model!
     
     A_list = []
     y_list = []
@@ -69,13 +69,14 @@ def initialize_shift_scale(model, data_loader):
                     print(f"!!! Error: Atom Type '{invalid}' not found in z_map.")
                     return model
 
+            # print('mapped_z: ', mapped_z)
             # --- 2. Build Matrix (PyTorch CPU) ---
             one_hot = torch.nn.functional.one_hot(mapped_z, num_species).float()
             A_batch = torch.zeros(batch.num_graphs, num_species)
             A_batch.index_add_(0, batch.batch, one_hot)
             
             A_list.append(A_batch)
-            y_list.append(batch.y)
+            y_list.append(batch.y_energy)
 
     # --- 3. Solve with NumPy (The Robust Part) ---
     # Convert large tensors to NumPy arrays

@@ -1,5 +1,15 @@
-
 import os
+
+# 1. Force the routing to your local Docker container
+os.environ["WANDB_BASE_URL"] = "http://localhost:8080"
+
+# 2. Force the script to run online
+os.environ["WANDB_MODE"] = "online"
+
+# 3. Force your Local API Key 
+# Go to http://localhost:8080/authorize in your browser, copy the key, and paste it here:
+os.environ["WANDB_API_KEY"] = "local-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"
+
 import time
 import wandb
 
@@ -12,13 +22,17 @@ from model import NequIP, force
 from trainutils import loadmodel, initialize_shift_scale, count_parameters, savecheckpoint
 from test import evaluate
 
+from logger import getlogger
+
+
 
 def initwandb(lr, batch_size, epochs, dataset_size, project, runname, WANDB_KEY):
     wandb.login(key=WANDB_KEY)
 
     # --- 2. INITIALIZE RUN ---
     run = wandb.init(
-        project=project,
+        entity="isambalghari",
+        project="DSpinGNN",
         name=runname, # Optional: Name this specific attempt
         config={
             "learning_rate": lr,
@@ -32,29 +46,34 @@ def initwandb(lr, batch_size, epochs, dataset_size, project, runname, WANDB_KEY)
 
 def criterion(energy, forces, data):
     
-    losse = F.mse_loss(energy, data.y)
+    losse = F.mse_loss(energy, data.y_energy)
 
-    lossf = F.mse_loss(forces, data.forces)
+    # lossf = F.mse_loss(forces, data.y_forces)
 
     we = 1.0
-    wf = 100.0
+    # wf = 100.0
 
-    losstot = we * losse + wf * lossf
+    losstot = we * losse #+ wf * lossf
 
     return losstot
 
-def train(data_dir, finetune, batch_size, project, runname, mps=False, lr=1e-2, epochs=5000, ft_runname="", WANDB_KEY=""):
+def train(datasetpath, finetune, batch_size, project, runname, mps=False, lr=1e-2, epochs=5000, ft_runname="", WANDB_KEY=""):
 
-    trainloader, valloader, _ = getdata(data_dir, mini=False, batch_size=batch_size)
+    logger.info("Hyperparameters:")
+    logger.info(f"  Learning Rate: {lr}")
+    logger.info(f"  Batch Size: {batch_size}")
+    logger.info(f"  Epochs: {epochs}")
+
+    trainloader, valloader, _ = getdata(datasetpath, batch_size=batch_size)
     trainsize = int(len(trainloader.dataset) / batch_size)
-    print('Data loaded')
+    logger.info('Data loaded')
     
     checkpoints_dir = "./checkpoints"
     if not os.path.exists(checkpoints_dir):
         os.makedirs(checkpoints_dir)
     # Initialize wandb logging
     initwandb(lr, batch_size, epochs, len(trainloader.dataset), project, runname, WANDB_KEY)
-    f = open('training-logs.txt', 'w')
+    # f = open('training-logs.txt', 'w')
 
 
     if finetune:
@@ -65,24 +84,24 @@ def train(data_dir, finetune, batch_size, project, runname, mps=False, lr=1e-2, 
         checkpoint_path = os.path.join("./checkpoints", "latest-model.pt")
         
         model = loadmodel(checkpoint_path, mps=mps)
-        print(f"Loaded model from {checkpoint_path} for finetuning.")
+        logger.info(f"Loaded model from {checkpoint_path} for finetuning.")
     else:
         model = NequIP(mps=mps)
-        print("Initialized new model for training.")
+        logger.info("Initialized new model for training.")
         # --- PLACE THIS BEFORE YOUR TRAINING LOOP ---
         model = initialize_shift_scale(model, trainloader)
 
-    print("###################################")
-    print('Model Architecture: \n', model)
-    print("###################################")
+    logger.info("###################################")
+    # print('Model Architecture: \n', model)
+    logger.info("###################################")
     paramscount = count_parameters(model)
-    print(f"Total Parameters:     {paramscount:,}")
+    logger.info(f"Total Parameters:     {paramscount:,}")
 
     if mps:
         device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
     else:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"Using device: {device}")
+    logger.info(f"Using device: {device}")
     model = model.to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=lr)
@@ -90,7 +109,7 @@ def train(data_dir, finetune, batch_size, project, runname, mps=False, lr=1e-2, 
 
     model.train()
     
-    print("Starting training...")
+    logger.info("Starting training...")
     for epoch in range(epochs+1):
 
         stime = time.time()
@@ -98,12 +117,13 @@ def train(data_dir, finetune, batch_size, project, runname, mps=False, lr=1e-2, 
             batch = batch.to(device)
             optimizer.zero_grad()
             
-            pos = batch.pos.requires_grad_(True)
+            # pos = batch.pos.requires_grad_(True)
             
             # Forward pass with the model
-            energy = model(batch.z, pos, batch.batch)
+            energy = model(batch)
 
-            forces = force(energy, pos)
+            # forces = force(energy, pos)
+            forces = None
             
             loss = criterion(energy, forces, batch)
 
@@ -114,49 +134,57 @@ def train(data_dir, finetune, batch_size, project, runname, mps=False, lr=1e-2, 
             wandb.log({
                 "train_loss": loss,
                 "iter": trainsize*epoch + k,
-                "learning_rate": optimizer.param_groups[0]['lr']
+                # "learning_rate": optimizer.param_groups[0]['lr']
             })
+            # logger.info(f"Epoch [{epoch+1}/{epochs}], Batch [{k+1}/{len(trainloader)}], Loss: {loss.item():.4f}")
         
             
         # --- save model every 10 epochs ---
-        if (epoch + 1) % 10 == 0:
+        if (epoch + 1) % 1 == 0:
             
             checkpoint_path = os.path.join(checkpoints_dir, f"Epoch-{epoch:04d}.pt")
             latest_ckpath = os.path.join(checkpoints_dir, "latest-model.pt")
 
-            savecheckpoint(checkpoint_path, epoch, model, optimizer, loss)
-            savecheckpoint(latest_ckpath, epoch, model, optimizer, loss)
+            # savecheckpoint(checkpoint_path, epoch, model, optimizer, loss)
+            # savecheckpoint(latest_ckpath, epoch, model, optimizer, loss)
 
 
 
+            logger.info("Starting evaluation...")
             mae_energy, mae_force = evaluate(model, valloader, device=device)
+            logger.info("="*30)
+            logger.info(f"RESULTS (Validation Set)")
+            logger.info("="*30)
+            logger.info(f"Energy MAE: {mae_energy:.5f} eV")
+            logger.info(f"Force  MAE: {mae_force:.5f} eV/A")
+            logger.info("="*30)
             # writer.add_scalar('MAE-Energy/val', mae_energy, epoch)
             # writer.add_scalar('MAE-Force/val', mae_force, epoch)
             wandb.log({
                 "MAE_Energy/val": mae_energy,
-                "MAE_Force/val": mae_force,
+                # "MAE_Force/val": mae_force,
                 "epoch": epoch
             })
             
-            print("Saving model to wandb...")
-            wandb.save(checkpoint_path)
-            wandb.save(latest_ckpath)
+            logger.info("Saving model to wandb...")
+            # wandb.save(checkpoint_path)
+            # wandb.save(latest_ckpath)
 
             line = f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}, Time Taken for single epoch: {(time.time()-stime): .01f}\n" 
-            print(line)
-            f.write(line)
+            logger.info(line)
+            # f.write(line)
             
     wandb.finish()
-    f.close()
+    # f.close()
 
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Train NequIP model.')
-    parser.add_argument('--data_dir', default="/content/drive/My Drive/MS-Physics/ML-DFT/NequIP/Data",
-                       type=str, help='Base directory for data.')
-    parser.add_argument('--project', default="NequIP_Aspirin", type=str, help='WandB project name.')
+    parser.add_argument('--datasetpath', default="./DataSets/GNN/ExchangeGNN.pth",
+                       type=str, help='Path to the dataset.')
+    parser.add_argument('--project', default="DSpinGNN", type=str, help='WandB project name.')
     parser.add_argument('--runname', default="Run_01_1k_Samples", type=str, help='WandB run name.')
     parser.add_argument('--mps', default=False, type=bool, help='Specify if the code is running on Mac/Cuda.')
     parser.add_argument('--finetune', default=False, type=bool, help='Fine-tune from a ' \
@@ -169,6 +197,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
 
-    train(args.data_dir, finetune=args.finetune, batch_size=args.batch_size, project=args.project,
+    logger = getlogger()
+    train(args.datasetpath, finetune=args.finetune, batch_size=args.batch_size, project=args.project,
           runname=args.runname, ft_runname=args.ft_runname, mps=args.mps, epochs=args.epochs,
           WANDB_KEY=args.WANDB_KEY, lr=args.lr)
