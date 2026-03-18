@@ -151,17 +151,30 @@ def train(datasetpath, finetune, batch_size, project, runname, mps=False, lr=1e-
 
 
             logger.info("Starting evaluation...")
-            mae_energy, mae_force = evaluate(model, valloader, device=device)
+            # mae_energy, mae_force = evaluate(model, valloader, device=device)
+            for k, batch in enumerate(valloader):
+                batch = batch.to(device)
+                # optimizer.zero_grad()
+                
+                # pos = batch.pos.requires_grad_(True)
+                
+                # Forward pass with the model
+                energy = model(batch)
+
+                # forces = force(energy, pos)
+                forces = None
+                
+                valloss = criterion(energy, forces, batch)
             logger.info("="*30)
             logger.info(f"RESULTS (Validation Set)")
             logger.info("="*30)
-            logger.info(f"Energy MAE: {mae_energy:.5f} eV")
-            logger.info(f"Force  MAE: {mae_force:.5f} eV/A")
+            logger.info(f"Validation Loss: {valloss:.5f} eV")
+            # logger.info(f"Force  MAE: {mae_force:.5f} eV/A")
             logger.info("="*30)
             # writer.add_scalar('MAE-Energy/val', mae_energy, epoch)
             # writer.add_scalar('MAE-Force/val', mae_force, epoch)
             wandb.log({
-                "MAE_Energy/val": mae_energy,
+                "Validation-Loss": valloss,
                 # "MAE_Force/val": mae_force,
                 "epoch": epoch
             })
