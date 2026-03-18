@@ -88,8 +88,8 @@ if __name__ == "__main__":
     datasetpath = "./DataSets/GNN/ExchangeGNN.pth"
 
 
-    stntypes = ['Uniaxial_X', 'Biaxial']
-    strains = [np.linspace(-0.15, 0.15, 21), np.linspace(-0.12, 0.12, 15)]
+    stntypes = ['Uniaxial_X', 'Biaxial', 'Shear_XY']
+    strains = [np.linspace(-0.15, 0.15, 21), np.linspace(-0.12, 0.12, 15), np.linspace(-0.15, 0.15, 21)]
     datagen = DataGenerator(rcut=5.0, stntypes=stntypes, strains=strains, phase='FM')
 
     dataset = datagen.generate(datasetdir=datasetdir)
