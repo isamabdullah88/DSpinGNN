@@ -2,7 +2,7 @@ import os
 import torch
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_sequence
-from model import NequIP, force
+from model import DSpinGNN, force
 import time
 
 from data import getdata
@@ -54,37 +54,38 @@ def evaluate(model, dataloader, device):
         forces = force(energy, pos)
         
         # B. Calculate Forces (Derivative)
-        ones = torch.ones_like(energy)
-        grads = torch.autograd.grad(
-            outputs=energy,
-            inputs=pos,
-            grad_outputs=ones,
-            create_graph=False, # False because we don't need second derivatives now
-            retain_graph=False
-        )[0]
-        forces = -1 * grads
+        # ones = torch.ones_like(energy)
+        # grads = torch.autograd.grad(
+        #     outputs=energy,
+        #     inputs=pos,
+        #     grad_outputs=ones,
+        #     create_graph=False, # False because we don't need second derivatives now
+        #     retain_graph=False
+        # )[0]
+        # forces = -1 * grads
         
         # 3. Calculate Errors (MAE)
         # Detach from graph to prevent memory leaks
+        e_pred = energy.detach()
+        f_pred = forces.detach()
         
         # Energy Error (Per Molecule)
         # Shape: (Batch_Size, 1)
-        e_err = torch.abs(energy.detach() - batch.y_energy)
+        e_err = torch.abs(e_pred.view(-1) - batch.y_energy.view(-1))
         mae_energy_sum += e_err.sum().item()
         
         # Force Error (Per Atom Component)
         # Shape: (Total_Atoms, 3)
         # We average over all 3 dimensions (x,y,z) and all atoms
-        f_err = torch.abs(forces.detach() - batch.y_forces)
+        f_err = torch.abs(f_pred - batch.y_forces)
         mae_force_sum += f_err.sum().item()
         
-        # 4. Update Counts
+        # 4. Update Counts 
         total_molecules += batch.num_graphs
-        # Multiply by 3 because force has (x, y, z) components
-        total_atoms += (batch.pos.shape[0] * 3) 
+        total_atoms += (batch.pos.shape[0] * 3) # x, y, z components
 
     # 5. Final Averages
-    mae_energy = mae_energy_sum / total_molecules
+    mae_energy = mae_energy_sum / total_atoms
     mae_force = mae_force_sum / total_atoms
     
     return mae_energy, mae_force
