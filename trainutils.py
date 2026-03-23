@@ -1,11 +1,11 @@
 import os
 import torch
 import numpy as np
-from model import NequIP
+from model import DSpinGNN
 
 def loadmodel(checkpoint_path, mps):
     # Load model architecture
-    model = NequIP(mps=mps)
+    model = DSpinGNN(mps=mps)
     device = torch.device('mps' if mps and torch.backends.mps.is_available() else
                         'cuda' if torch.cuda.is_available() else 'cpu')
     print('device: ', device)

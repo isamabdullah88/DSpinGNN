@@ -1,14 +1,14 @@
 import os
 
 # 1. Force the routing to your local Docker container
-os.environ["WANDB_BASE_URL"] = "http://localhost:8080"
+# os.environ["WANDB_BASE_URL"] = "http://localhost:8080"
 
 # 2. Force the script to run online
 os.environ["WANDB_MODE"] = "online"
 
 # 3. Force your Local API Key 
 # Go to http://localhost:8080/authorize in your browser, copy the key, and paste it here:
-os.environ["WANDB_API_KEY"] = "local-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"
+os.environ["WANDB_API_KEY"] = "b1c9982244acd53ac0d1"
 
 import time
 import wandb
@@ -18,7 +18,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 
 from data import getdata
-from model import NequIP, force
+from model import DSpinGNN, force
 from trainutils import loadmodel, initialize_shift_scale, count_parameters, savecheckpoint
 from test import evaluate
 
@@ -26,21 +26,22 @@ from logger import getlogger
 
 
 
-def initwandb(lr, batch_size, epochs, dataset_size, project, runname, WANDB_KEY):
+def initwandb(lr, batch_size, epochs, dataset_size, project, runname, WANDB_KEY, wb_notes):
     wandb.login(key=WANDB_KEY)
 
     # --- 2. INITIALIZE RUN ---
     run = wandb.init(
-        entity="isambalghari",
+        entity="isamabdullah88-lahore-university-of-management-sciences",
         project="DSpinGNN",
         name=runname, # Optional: Name this specific attempt
         config={
             "learning_rate": lr,
             "batch_size": batch_size,
             "max_epochs": epochs,
-            "architecture": "NequIP",
+            "architecture": "DSpinGNN",
             "dataset_size": dataset_size
-        }
+        },
+        notes=wb_notes
     )
 
 
@@ -48,16 +49,16 @@ def criterion(energy, forces, data):
     
     losse = F.mse_loss(energy, data.y_energy)
 
-    # lossf = F.mse_loss(forces, data.y_forces)
+    lossf = F.mse_loss(forces, data.y_forces)
 
     we = 1.0
-    # wf = 100.0
+    wf = 100.0
 
-    losstot = we * losse #+ wf * lossf
+    losstot = we * losse + wf * lossf
 
-    return losstot
+    return losstot, losse, lossf
 
-def train(datasetpath, finetune, batch_size, project, runname, mps=False, lr=1e-2, epochs=5000, ft_runname="", WANDB_KEY=""):
+def train(datasetpath, finetune, batch_size, project, runname, mps=False, lr=1e-2, epochs=5000, ft_runname="", WANDB_KEY="", wb_notes=""):
 
     logger.info("Hyperparameters:")
     logger.info(f"  Learning Rate: {lr}")
@@ -67,12 +68,14 @@ def train(datasetpath, finetune, batch_size, project, runname, mps=False, lr=1e-
     trainloader, valloader, _ = getdata(datasetpath, batch_size=batch_size)
     trainsize = int(len(trainloader.dataset) / batch_size)
     logger.info('Data loaded')
+    logger.info(f"Training samples: {len(trainloader.dataset)}")
+    logger.info(f"Validation samples: {len(valloader.dataset)}")
     
     checkpoints_dir = "./checkpoints"
     if not os.path.exists(checkpoints_dir):
         os.makedirs(checkpoints_dir)
     # Initialize wandb logging
-    initwandb(lr, batch_size, epochs, len(trainloader.dataset), project, runname, WANDB_KEY)
+    initwandb(lr, batch_size, epochs, len(trainloader.dataset), project, runname, WANDB_KEY, wb_notes)
     # f = open('training-logs.txt', 'w')
 
 
@@ -86,7 +89,7 @@ def train(datasetpath, finetune, batch_size, project, runname, mps=False, lr=1e-
         model = loadmodel(checkpoint_path, mps=mps)
         logger.info(f"Loaded model from {checkpoint_path} for finetuning.")
     else:
-        model = NequIP(mps=mps)
+        model = DSpinGNN(mps=mps)
         logger.info("Initialized new model for training.")
         # --- PLACE THIS BEFORE YOUR TRAINING LOOP ---
         model = initialize_shift_scale(model, trainloader)
@@ -117,15 +120,14 @@ def train(datasetpath, finetune, batch_size, project, runname, mps=False, lr=1e-
             batch = batch.to(device)
             optimizer.zero_grad()
             
-            # pos = batch.pos.requires_grad_(True)
+            pos = batch.pos.requires_grad_(True)
             
             # Forward pass with the model
             energy = model(batch)
 
-            # forces = force(energy, pos)
-            forces = None
+            forces = force(energy, pos)
             
-            loss = criterion(energy, forces, batch)
+            loss, losse, lossf = criterion(energy, forces, batch)
 
             loss.backward()
             optimizer.step()
@@ -133,6 +135,8 @@ def train(datasetpath, finetune, batch_size, project, runname, mps=False, lr=1e-
             # writer.add_scalar('Batch-Loss/train', loss.item(), trainsize*epoch + k)
             wandb.log({
                 "train_loss": loss,
+                "train_loss_energy": losse,
+                "train_loss_forces": lossf,
                 "iter": trainsize*epoch + k,
                 # "learning_rate": optimizer.param_groups[0]['lr']
             })
@@ -141,30 +145,24 @@ def train(datasetpath, finetune, batch_size, project, runname, mps=False, lr=1e-
             
         # --- save model every 10 epochs ---
         if (epoch + 1) % 1 == 0:
-            
-            checkpoint_path = os.path.join(checkpoints_dir, f"Epoch-{epoch:04d}.pt")
-            latest_ckpath = os.path.join(checkpoints_dir, "latest-model.pt")
-
-            # savecheckpoint(checkpoint_path, epoch, model, optimizer, loss)
-            # savecheckpoint(latest_ckpath, epoch, model, optimizer, loss)
-
 
 
             logger.info("Starting evaluation...")
-            # mae_energy, mae_force = evaluate(model, valloader, device=device)
+            mae_energy, mae_force = evaluate(model, valloader, device=device)
             for k, batch in enumerate(valloader):
                 batch = batch.to(device)
                 # optimizer.zero_grad()
                 
-                # pos = batch.pos.requires_grad_(True)
+                pos = batch.pos.requires_grad_(True)
                 
                 # Forward pass with the model
                 energy = model(batch)
 
-                # forces = force(energy, pos)
-                forces = None
+                forces = force(energy, pos)
+                # forces = None
                 
-                valloss = criterion(energy, forces, batch)
+                valloss, vallosse, vallossf = criterion(energy, forces, batch)
+
             logger.info("="*30)
             logger.info(f"RESULTS (Validation Set)")
             logger.info("="*30)
@@ -175,17 +173,29 @@ def train(datasetpath, finetune, batch_size, project, runname, mps=False, lr=1e-
             # writer.add_scalar('MAE-Force/val', mae_force, epoch)
             wandb.log({
                 "Validation-Loss": valloss,
-                # "MAE_Force/val": mae_force,
+                "Validation-Loss-Energy": vallosse,
+                "Validation-Loss-Forces": vallossf,
+                "MAE-Energy/val": mae_energy,
+                "MAE-Force/val": mae_force,
                 "epoch": epoch
             })
             
             logger.info("Saving model to wandb...")
-            # wandb.save(checkpoint_path)
-            # wandb.save(latest_ckpath)
 
             line = f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}, Time Taken for single epoch: {(time.time()-stime): .01f}\n" 
             logger.info(line)
             # f.write(line)
+        
+        if epoch % 100 == 0:
+            checkpoint_path = os.path.join(checkpoints_dir, f"Epoch-{epoch:04d}.pt")
+            latest_ckpath = os.path.join(checkpoints_dir, "latest-model.pt")
+            wandb.save(checkpoint_path)
+            wandb.save(latest_ckpath)
+
+            savecheckpoint(checkpoint_path, epoch, model, optimizer, loss)
+            savecheckpoint(latest_ckpath, epoch, model, optimizer, loss)
+
+            logger.info(f"Saved checkpoint: {checkpoint_path}")
             
     wandb.finish()
     # f.close()
@@ -194,8 +204,8 @@ def train(datasetpath, finetune, batch_size, project, runname, mps=False, lr=1e-
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description='Train NequIP model.')
-    parser.add_argument('--datasetpath', default="./DataSets/GNN/ExchangeGNN.pth",
+    parser = argparse.ArgumentParser(description='Train DSpinGNN model.')
+    parser.add_argument('--datasetpath', default="./DataSets/GNN/RattleGNN.pth",
                        type=str, help='Path to the dataset.')
     parser.add_argument('--project', default="DSpinGNN", type=str, help='WandB project name.')
     parser.add_argument('--runname', default="Run_01_1k_Samples", type=str, help='WandB run name.')
@@ -207,10 +217,11 @@ if __name__ == "__main__":
     parser.add_argument('--lr', default=1e-2, type=float, help='Learning rate for optimizer.')
     parser.add_argument('--epochs', default=5000, type=int, help='Number of training epochs.')
     parser.add_argument('--WANDB_KEY', default="", type=str, help='WandB API Key.')
+    parser.add_argument('--wb_notes', default="", type=str, help='Notes to add to the WandB run.')
     args = parser.parse_args()
 
 
     logger = getlogger()
     train(args.datasetpath, finetune=args.finetune, batch_size=args.batch_size, project=args.project,
           runname=args.runname, ft_runname=args.ft_runname, mps=args.mps, epochs=args.epochs,
-          WANDB_KEY=args.WANDB_KEY, lr=args.lr)
+          WANDB_KEY=args.WANDB_KEY, lr=args.lr, wb_notes=args.wb_notes)
