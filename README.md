@@ -1,6 +1,6 @@
 # DSpinGNN: Disentangled Spin Graph Neural Network for 2D Magnetism
 
-This repository contains the implementation of DSpinGNN, an $E(3)$-equivariant Graph Neural Network developed as the core research of my MS Physics thesis. Building upon a foundational implementation of NequIP, this project extends equivariant architectures to simultaneously predict interatomic potentials and magnetic exchange interactions in strain-engineered 2D magnetic materials, with a primary focus on **Chromium Triiodide (CrI₃)**.
+This repository contains the implementation of DSpinGNN, an $E(3)$-equivariant Graph Neural Network developed as the core research of my MS Physics thesis. Building upon a foundational implementation of DSpinGNN, this project extends equivariant architectures to simultaneously predict interatomic potentials and magnetic exchange interactions in strain-engineered 2D magnetic materials, with a primary focus on **Chromium Triiodide (CrI₃)**.
 
 
 ## 🚀 Project Overview
@@ -8,7 +8,7 @@ This repository contains the implementation of DSpinGNN, an $E(3)$-equivariant G
 The goal of this project is to map the complex magneto-elastic tensor of 2D materials using a combination of High-Throughput Density Functional Theory (DFT) and Machine Learning. By predicting how structural deformations alter the Goodenough-Kanamori-Anderson (GKA) super-exchange pathways, DSpinGNN serves as a predictive engine for engineering Ferromagnetic (FM) to Antiferromagnetic (AFM) phase transitions.
 
 ### Key Features
-* **Multi-Task Equivariant Architecture**: An extension of the NequIP backbone that utilizes an advanced Edge Decoder to simultaneously predict Graph-level (Total Energy), Node-level (Atomic Forces), and Edge-level (Heisenberg Exchange $J_{ij}$) properties.
+* **Multi-Task Equivariant Architecture**: An extension of the DSpinGNN backbone that utilizes an advanced Edge Decoder to simultaneously predict Graph-level (Total Energy), Node-level (Atomic Forces), and Edge-level (Heisenberg Exchange $J_{ij}$) properties.
 * **High-Throughput DFT Pipeline**: Fully automated Python framework utilizing ASE to systematically generate and relax Uniaxial, Biaxial, and Shear strain configurations across periodic boundary conditions.
 * **First-Principles Spin Extraction**: Integration of **Quantum ESPRESSO**, **Wannier90**, and **TB2J** to rigorously extract magnetic exchange parameters from maximally localized Wannier functions.
 * **Periodic Graph Construction**: Custom data loaders in PyTorch Geometric (PyG) that map distant unit-cell interactions using fractional lattice shift vectors ($R$), strictly preserving the physics of the infinite 2D crystal
