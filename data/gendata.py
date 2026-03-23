@@ -28,8 +28,8 @@ class DataGenerator:
     
 
 
-    def parse(self, wkdir, stntype, stnvalue):
-        pwopath = os.path.join(wkdir, f"Strain_{stntype}_{stnvalue:.4f}", "espresso.pwo")
+    def parse(self, wkdir, stntype, stnvalue, rattleidx):
+        pwopath = os.path.join(wkdir, f"Strain_{stntype}_{stnvalue:.4f}_{rattleidx}", "espresso.pwo")
         if not os.path.exists(pwopath):
             print(f"Output file not found for strain {stnvalue:.4f} at {pwopath}. Skipping...")
             return None
@@ -44,12 +44,12 @@ class DataGenerator:
         cell = torch.tensor(atomsout.get_cell(), dtype=torch.float32)
 
         #  Parse TB2J outputs for this strain
-        tb2jpath = os.path.join(wkdir, f"Strain_{stntype}_{stnvalue:.4f}", "tmp/TB2J_results/Multibinit", "exchange.xml")
-        if not os.path.exists(tb2jpath):
-            print(f"TB2J output file not found for strain {stnvalue:.4f} at {tb2jpath}. Skipping TB2J parsing...")
+        # tb2jpath = os.path.join(wkdir, f"Strain_{stntype}_{stnvalue:.4f}", "tmp/TB2J_results/Multibinit", "exchange.xml")
+        # if not os.path.exists(tb2jpath):
+        #     print(f"TB2J output file not found for strain {stnvalue:.4f} at {tb2jpath}. Skipping TB2J parsing...")
             
         edgeidxs, edgeshifts = self.cgraph.tensorgraph(rcut = self.rcut)
-        cr_edges, exchangejs, cr_shifts = self.egraph.graph(tb2jpath)
+        # cr_edges, exchangejs, cr_shifts = self.egraph.graph(tb2jpath)
 
         data = Data(
             z=z,
@@ -59,24 +59,44 @@ class DataGenerator:
             y_forces=torch.tensor(forces, dtype=torch.float32),
             edge_index=edgeidxs,
             edge_shift=edgeshifts,
-            cr_edge_index=cr_edges,
-            cr_edge_shift=cr_shifts,
-            exchangejs=exchangejs
+            # cr_edge_index=cr_edges,
+            # cr_edge_shift=cr_shifts,
+            # exchangejs=exchangejs
         )
 
         return data
     
-    def generate(self, datasetdir):
+    def generate(self, datasetdir, rattleidxs):
         """
         Main method to generate the dataset. It iterates over all strains, parses the DFT and TB2J outputs, and saves the PyG Data objects.
         """
+        numsamples = 0
         for stntype, stnvalues in zip(self.stntypes, self.strains):
-            wkdir = os.path.join(datasetdir, f"Exchange-{stntype}/{self.phase}")
-            for i, strain in enumerate(stnvalues):
-                print(f"Processing strain {strain:.4f} ({i+1}/{len(stnvalues)})...")
-                data = self.parse(wkdir, stntype, strain)
-                if data is not None:
-                    self.dataset.append(data)
+            wkdir = os.path.join(datasetdir, f"Rattle-{stntype}/{self.phase}")
+            for strain in stnvalues:
+                for rattleidx in rattleidxs:
+                    print(f"Processing strain {strain:.4f} ({rattleidx+1}/{len(rattleidxs)})...")
+                    
+                    data = self.parse(wkdir, stntype, strain, rattleidx)
+                    if data is not None:
+                        self.dataset.append(data)
+                        numsamples += 1
+                    else:
+                        print(f"Data parsing failed for strain {strain:.4f} (Rattle idx: {rattleidx}). Skipping this sample.")
+            
+            wkdir = os.path.join(datasetdir, f"Rattle-{stntype}-4/{self.phase}")
+            for strain in stnvalues:
+                for rattleidx in rattleidxs:
+                    print(f"Processing strain {strain:.4f} ({rattleidx+1}/{len(rattleidxs)})...")
+                    
+                    data = self.parse(wkdir, stntype, strain, rattleidx)
+                    if data is not None:
+                        self.dataset.append(data)
+                        numsamples += 1
+                    else:
+                        print(f"Data parsing failed for strain {strain:.4f} (Rattle idx: {rattleidx}). Skipping this sample.")
+
+        print(f"Dataset generation complete. Total samples: {numsamples}")
 
         return self.dataset
 
@@ -85,14 +105,17 @@ class DataGenerator:
 if __name__ == "__main__":
     
     datasetdir = "./DataSets/GNN/"
-    datasetpath = "./DataSets/GNN/ExchangeGNN.pth"
+    datasetpath = "./DataSets/GNN/RattleGNN.pth"
 
 
-    stntypes = ['Uniaxial_X', 'Biaxial', 'Shear_XY']
-    strains = [np.linspace(-0.15, 0.15, 21), np.linspace(-0.12, 0.12, 15), np.linspace(-0.15, 0.15, 21)]
+    stntypes = ['Biaxial', 'Uniaxial_X', 'Shear_XY']
+    strains = [[float(s) for s in np.linspace(-0.12, 0.12, 15) if -0.05 < s < 0.05]]
+    strains += [[float(s) for s in np.linspace(-0.15, 0.15, 21) if -0.05 < s < 0.05]]
+    print('strains: ', strains)
+    rattleidxs = list(range(10))
     datagen = DataGenerator(rcut=5.0, stntypes=stntypes, strains=strains, phase='FM')
 
-    dataset = datagen.generate(datasetdir=datasetdir)
+    dataset = datagen.generate(datasetdir=datasetdir, rattleidxs=rattleidxs)
 
     print(f"Generated dataset with {len(dataset)} samples. Saving to {datasetpath}...")
     torch.save(dataset, datasetpath)
