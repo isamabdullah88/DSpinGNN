@@ -19,7 +19,7 @@ class NequIPCalculator(Calculator):
         super().calculate(atoms, properties, system_changes)
 
         # 2. Prepare inputs from ASE Atoms object
-        # Note: NequIP typically needs positions, atomic numbers, and 
+        # Note: DSpinGNN typically needs positions, atomic numbers, and 
         # potentially an edge list (neighbor list) if you don't compute it inside the model.
         pos = torch.tensor(self.atoms.get_positions(), 
                            dtype=torch.float32, 

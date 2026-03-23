@@ -42,7 +42,7 @@ def getdata(datasetpath, batch_size=32):
     return trainloader, valloader, testloader
 if __name__ == "__main__":
     
-    trainloader, valloader, testloader = getdata("./DataSets/GNN/ExchangeGNN.pth", 1)
+    trainloader, valloader, testloader = getdata("./DataSets/GNN/RattleGNN.pth", 1)
 
     forces = []
     for k, batch in enumerate(trainloader):

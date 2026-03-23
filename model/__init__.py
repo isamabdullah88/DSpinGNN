@@ -1,1 +1,1 @@
-from .model import NequIP, force
+from .model import DSpinGNN, force
