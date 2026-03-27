@@ -60,7 +60,7 @@ class Radial(nn.Module):
 
         
 class Convolution(nn.Module):
-    def __init__(self, l0dim, l1dim, l2dim, numbasis=20, rcut=5.0, mps=True):
+    def __init__(self, l0dim, l1dim, l2dim, rcut, numbasis=20, mps=True):
         super(Convolution, self).__init__()
         self.mps = mps
 
@@ -101,6 +101,8 @@ class Convolution(nn.Module):
 
         # print('edge idx: ', batch.edge_index.shape)
         src, dst = batch.edge_index
+
+        # print('edge idx: ', batch.edge_index.shape)
 
         neighbors = nodes[src]
 

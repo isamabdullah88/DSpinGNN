@@ -25,18 +25,19 @@ class DSpinGNN(nn.Module):
         self.l0dim = 64
         self.l1dim: int = 32
         self.l2dim: int = 16
+        self.rcut = 7.0
 
         self.atomembeds = AtomEmbedding(self.l0dim, self.l1dim, self.l2dim, self.numembeds)
 
-        self.interaction_block1 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, mps=mps)
+        self.interaction_block1 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut, mps=mps)
 
-        self.interaction_block2 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, mps=mps)
+        self.interaction_block2 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut, mps=mps)
         
-        self.interaction_block3 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, mps=mps)
+        self.interaction_block3 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut,  mps=mps)
 
-        self.interaction_block4 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, mps=mps)
+        self.interaction_block4 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut, mps=mps)
 
-        self.interaction_block5 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, mps=mps)
+        self.interaction_block5 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut, mps=mps)
 
         self.output_block = OutputBlock(self.l0dim, self.l1dim, self.l2dim)
 
