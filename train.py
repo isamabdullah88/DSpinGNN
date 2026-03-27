@@ -52,7 +52,7 @@ def criterion(energy, forces, data):
     lossf = F.mse_loss(forces, data.y_forces)
 
     we = 1.0
-    wf = 100.0
+    wf = 1000.0
 
     losstot = we * losse + wf * lossf
 
@@ -108,92 +108,111 @@ def train(datasetpath, finetune, batch_size, project, runname, mps=False, lr=1e-
     model = model.to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=lr)
-
-
-    model.train()
     
+    # ADDED: The LR Scheduler to prevent gradient plateau/explosions
+    # scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+    #     optimizer, mode='min', factor=0.5, patience=15, min_lr=1e-6, verbose=True
+    # )
+
     logger.info("Starting training...")
     for epoch in range(epochs+1):
-
+        
+        # FIX 1: Ensure model is back in training mode every epoch
+        model.train() 
         stime = time.time()
+        
         for k, batch in enumerate(trainloader):
             batch = batch.to(device)
             optimizer.zero_grad()
             
             pos = batch.pos.requires_grad_(True)
             
-            # Forward pass with the model
             energy = model(batch)
-
-            forces = force(energy, pos)
+            # NOTE: ensure force() uses create_graph=True internally so backward() works
+            forces = force(energy, pos) 
             
             loss, losse, lossf = criterion(energy, forces, batch)
 
             loss.backward()
+            
+            # ADDED: Gradient Clipping to prevent the Epoch 1200 Explosion
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            
             optimizer.step()
 
-            # writer.add_scalar('Batch-Loss/train', loss.item(), trainsize*epoch + k)
             wandb.log({
-                "train_loss": loss,
-                "train_loss_energy": losse,
-                "train_loss_forces": lossf,
+                "train_loss": loss.item(),
+                "train_loss_energy": losse.item(),
+                "train_loss_forces": lossf.item(),
                 "iter": trainsize*epoch + k,
-                # "learning_rate": optimizer.param_groups[0]['lr']
+                "learning_rate": optimizer.param_groups[0]['lr']
             })
-            # logger.info(f"Epoch [{epoch+1}/{epochs}], Batch [{k+1}/{len(trainloader)}], Loss: {loss.item():.4f}")
-        
             
-        # --- save model every 10 epochs ---
+        # --- Validation Phase ---
         if (epoch + 1) % 1 == 0:
-
-
             logger.info("Starting evaluation...")
+            # Note: evaluate() sets model.eval() internally!
             mae_energy, mae_force = evaluate(model, valloader, device=device)
-            for k, batch in enumerate(valloader):
-                batch = batch.to(device)
-                # optimizer.zero_grad()
-                
-                pos = batch.pos.requires_grad_(True)
-                
-                # Forward pass with the model
-                energy = model(batch)
+            
+            # FIX 2: Correctly accumulate validation losses
+            total_valloss = 0.0
+            total_vallosse = 0.0
+            total_vallossf = 0.0
+            num_val_graphs = 0
+            
+            # We must enable grad for validation force calculation
+            with torch.enable_grad(): 
+                for k, batch in enumerate(valloader):
+                    batch = batch.to(device)
+                    pos = batch.pos.requires_grad_(True)
+                    
+                    energy = model(batch)
+                    forces = force(energy, pos)
+                    
+                    valloss, vallosse, vallossf = criterion(energy, forces, batch)
+                    
+                    # Accumulate based on batch size
+                    graphs_in_batch = batch.num_graphs
+                    total_valloss += valloss.item() * graphs_in_batch
+                    total_vallosse += vallosse.item() * graphs_in_batch
+                    total_vallossf += vallossf.item() * graphs_in_batch
+                    num_val_graphs += graphs_in_batch
 
-                forces = force(energy, pos)
-                # forces = None
-                
-                valloss, vallosse, vallossf = criterion(energy, forces, batch)
+            # Calculate actual averages
+            avg_valloss = total_valloss / num_val_graphs
+            avg_vallosse = total_vallosse / num_val_graphs
+            avg_vallossf = total_vallossf / num_val_graphs
 
             logger.info("="*30)
             logger.info(f"RESULTS (Validation Set)")
+            logger.info(f"Validation Loss: {avg_valloss:.5f}")
             logger.info("="*30)
-            logger.info(f"Validation Loss: {valloss:.5f} eV")
-            # logger.info(f"Force  MAE: {mae_force:.5f} eV/A")
-            logger.info("="*30)
-            # writer.add_scalar('MAE-Energy/val', mae_energy, epoch)
-            # writer.add_scalar('MAE-Force/val', mae_force, epoch)
+            
             wandb.log({
-                "Validation-Loss": valloss,
-                "Validation-Loss-Energy": vallosse,
-                "Validation-Loss-Forces": vallossf,
+                "Validation-Loss": avg_valloss,
+                "Validation-Loss-Energy": avg_vallosse,
+                "Validation-Loss-Forces": avg_vallossf,
                 "MAE-Energy/val": mae_energy,
                 "MAE-Force/val": mae_force,
                 "epoch": epoch
             })
             
-            logger.info("Saving model to wandb...")
+            # ADDED: Step the scheduler based on Force MAE
+            # scheduler.step(mae_force)
 
-            line = f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}, Time Taken for single epoch: {(time.time()-stime): .01f}\n" 
+            line = f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}, Time: {(time.time()-stime): .01f}\n" 
             logger.info(line)
-            # f.write(line)
         
         if epoch % 100 == 0:
             checkpoint_path = os.path.join(checkpoints_dir, f"Epoch-{epoch:04d}.pt")
             latest_ckpath = os.path.join(checkpoints_dir, "latest-model.pt")
-            wandb.save(checkpoint_path)
-            wandb.save(latest_ckpath)
-
+            
+            # FIX 3: Save to disk FIRST, then tell WandB to upload it
             savecheckpoint(checkpoint_path, epoch, model, optimizer, loss)
             savecheckpoint(latest_ckpath, epoch, model, optimizer, loss)
+            
+            wandb.save(checkpoint_path)
+            wandb.save(latest_ckpath)
 
             logger.info(f"Saved checkpoint: {checkpoint_path}")
             
