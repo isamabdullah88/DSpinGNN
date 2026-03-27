@@ -4,7 +4,7 @@ import numpy as np
 from torch_geometric.data import Data
 
 from .hubbard import EspressoHubbard
-from .CrI3 import CrI3
+from .crI3 import CrI3
 from .exchange import ExchangeGraph
 from .crystaltensor import CrystalGraphTensor
 
@@ -48,7 +48,9 @@ class DataGenerator:
         # if not os.path.exists(tb2jpath):
         #     print(f"TB2J output file not found for strain {stnvalue:.4f} at {tb2jpath}. Skipping TB2J parsing...")
             
-        edgeidxs, edgeshifts = self.cgraph.tensorgraph(rcut = self.rcut)
+        edgeidxs, edgeshifts = self.cgraph.tensorgraph(self.rcut)
+        # print('pos: ', pos.shape)
+        # print('edges: ', edgeidxs.shape)
         # cr_edges, exchangejs, cr_shifts = self.egraph.graph(tb2jpath)
 
         data = Data(
@@ -105,15 +107,15 @@ class DataGenerator:
 if __name__ == "__main__":
     
     datasetdir = "./DataSets/GNN/"
-    datasetpath = "./DataSets/GNN/RattleGNN.pth"
+    datasetpath = "./DataSets/GNN/RattleGNN-rcut_15.pth"
 
-
+    RCUT = 15.0
     stntypes = ['Biaxial', 'Uniaxial_X', 'Shear_XY']
     strains = [[float(s) for s in np.linspace(-0.12, 0.12, 15) if -0.05 < s < 0.05]]
     strains += [[float(s) for s in np.linspace(-0.15, 0.15, 21) if -0.05 < s < 0.05]]
     print('strains: ', strains)
     rattleidxs = list(range(10))
-    datagen = DataGenerator(rcut=5.0, stntypes=stntypes, strains=strains, phase='FM')
+    datagen = DataGenerator(RCUT, stntypes=stntypes, strains=strains, phase='FM')
 
     dataset = datagen.generate(datasetdir=datasetdir, rattleidxs=rattleidxs)
 

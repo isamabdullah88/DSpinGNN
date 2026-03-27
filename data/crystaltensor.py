@@ -28,7 +28,7 @@ class CrystalGraphTensor:
         self.pos = torch.tensor(np.array([cr1, cr2, It1, It2, It3, Ib1, Ib2, Ib3]), dtype=torch.float32)
 
 
-    def tensorgraph(self, rcut=5.0):
+    def tensorgraph(self, rcut):
         """
         Builds a graph with periodic boundary conditions from scratch including ghost atoms using PyTorch tensors
         """
