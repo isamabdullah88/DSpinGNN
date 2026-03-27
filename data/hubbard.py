@@ -16,7 +16,7 @@ class EspressoHubbard:
     def parseatoms(self, content, atoms):
         # --- 1. GET RELAXED GEOMETRY (CUSTOM PARSER) ---
         # Bypassing ASE's read_espresso_out completely to avoid the AssertionError
-        relaxed_atoms = atoms.copy()
+        atomsout = atoms.copy()
         
         try:
             # A. Parse Final Cell (if CELL_PARAMETERS is present in the output)
@@ -40,7 +40,7 @@ class EspressoHubbard:
                     if alat_match:
                         cell *= float(alat_match.group(1)) * 0.529177210903
                 
-                relaxed_atoms.set_cell(cell)
+                atomsout.set_cell(cell)
 
             # B. Parse Final Positions (if ATOMIC_POSITIONS is present)
             pos_idx = content.rfind('ATOMIC_POSITIONS')
@@ -62,24 +62,24 @@ class EspressoHubbard:
                         break # End of atomic block
                         
                 # Only apply if we extracted the correct number of atoms
-                if len(positions) == len(relaxed_atoms):
+                if len(positions) == len(atomsout):
                     positions = np.array(positions)
                     if unit == 'angstrom':
-                        relaxed_atoms.set_positions(positions)
+                        atomsout.set_positions(positions)
                     elif unit == 'bohr':
-                        relaxed_atoms.set_positions(positions * 0.529177210903)
+                        atomsout.set_positions(positions * 0.529177210903)
                     elif unit == 'crystal':
-                        relaxed_atoms.set_scaled_positions(positions)
+                        atomsout.set_scaled_positions(positions)
                     elif unit == 'alat':
                         alat_match = re.search(r'celldm\(1\)=\s*([-.\d]+)', content)
                         if alat_match:
-                            relaxed_atoms.set_positions(positions * float(alat_match.group(1)) * 0.529177210903)
+                            atomsout.set_positions(positions * float(alat_match.group(1)) * 0.529177210903)
                             
         except Exception as e:
             print(f"Warning: Custom Geometry Parse failed ({e}). Returning unrelaxed structure!")
-            relaxed_atoms = atoms.copy()
+            atomsout = atoms.copy()
 
-        return relaxed_atoms
+        return atomsout
 
     # ---------------------------------------------------------------------------------------------
     def parse(self, filepath, atoms):
@@ -213,7 +213,7 @@ class EspressoHubbard:
 
 if __name__ == "__main__":
     from ase.db import connect
-    from .CrI3 import CrI3
+    from .crI3 import CrI3
 
     phase = 'FM'
     stntype = 'Shear_XY'
