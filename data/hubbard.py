@@ -33,8 +33,13 @@ class EspressoHubbard:
             cell_idx = content.rfind('CELL_PARAMETERS')
             if cell_idx != -1:
                 block = content[cell_idx:].split('\n')
-                unit_match = re.search(r'\((.*?)\)', block[0])
-                unit = unit_match.group(1).strip().lower() if unit_match else 'angstrom'
+                
+                # FIX: Handle units separated by spaces, with or without () or {}
+                header_parts = block[0].split()
+                if len(header_parts) > 1:
+                    unit = re.sub(r'[(){}]', '', header_parts[1]).strip().lower()
+                else:
+                    unit = 'angstrom'
                 
                 # Extract the 3x3 matrix lines
                 v1 = [float(x) for x in block[1].split()[:3]]
@@ -56,8 +61,13 @@ class EspressoHubbard:
             pos_idx = content.rfind('ATOMIC_POSITIONS')
             if pos_idx != -1:
                 block = content[pos_idx:].split('\n')
-                unit_match = re.search(r'\((.*?)\)', block[0])
-                unit = unit_match.group(1).strip().lower() if unit_match else 'crystal'
+                
+                # FIX: Handle units separated by spaces, with or without () or {}
+                header_parts = block[0].split()
+                if len(header_parts) > 1:
+                    unit = re.sub(r'[(){}]', '', header_parts[1]).strip().lower()
+                else:
+                    unit = 'crystal'
                 
                 positions = []
                 for line in block[1:]:
@@ -108,9 +118,6 @@ class EspressoHubbard:
 
         with open(pwopath, 'r') as f:
             content = f.read()
-
-            # # Parse geometry
-            # atomsout = self.parseatoms(content, atoms)
 
             # Parse Energy
             e_match = re.search(r'!\s+total energy\s+=\s+([-.\d]+)\s+Ry', content)
@@ -181,7 +188,7 @@ class EspressoHubbard:
             
             calc.efermi = efermi
             atomsout.calc = calc
-            
+
             return atomsout
 
 
