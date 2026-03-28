@@ -11,7 +11,7 @@ def force(energy, pos):
     ones = torch.ones_like(energy)
 
     grads = torch.autograd.grad(outputs=energy, inputs=pos, grad_outputs=ones, create_graph=True,
-                                retain_graph=True, allow_unused=True)[0]
+                                retain_graph=True, allow_unused=False)[0]
 
     forces = -grads
     return forces
@@ -22,9 +22,9 @@ class DSpinGNN(nn.Module):
         super(DSpinGNN, self).__init__()
         
         self.numembeds = 50
-        self.l0dim = 64
-        self.l1dim: int = 32
-        self.l2dim: int = 16
+        self.l0dim = 32
+        self.l1dim: int = 16
+        self.l2dim: int = 8
         self.rcut = 7.0
 
         self.atomembeds = AtomEmbedding(self.l0dim, self.l1dim, self.l2dim, self.numembeds)

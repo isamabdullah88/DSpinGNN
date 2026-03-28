@@ -15,7 +15,7 @@ class NonLinearGate(nn.Module):
 
         self.gate = Gate(
             f"{l0dim}x0e", [nn.SiLU()],
-            f"{l1dim+l2dim}x0e", [nn.Sigmoid()],
+            f"{l1dim+l2dim}x0e", [nn.SiLU()],
             f"{l1dim}x1o + {l2dim}x2e"
         )
 
