@@ -10,6 +10,7 @@ os.environ["WANDB_MODE"] = "online"
 # Go to http://localhost:8080/authorize in your browser, copy the key, and paste it here:
 os.environ["WANDB_API_KEY"] = "b1c9982244acd53ac0d1"
 
+import numpy as np
 import time
 import wandb
 
@@ -59,6 +60,7 @@ def criterion(energy, forces, data):
     return losstot, losse, lossf
 
 def train(datasetpath, finetune, batch_size, project, runname, mps=False, lr=1e-2, epochs=5000, ft_runname="", WANDB_KEY="", wb_notes=""):
+    logprefix = "[TRAIN] "
 
     logger.info("Hyperparameters:")
     logger.info(f"  Learning Rate: {lr}")
@@ -76,7 +78,6 @@ def train(datasetpath, finetune, batch_size, project, runname, mps=False, lr=1e-
         os.makedirs(checkpoints_dir)
     # Initialize wandb logging
     initwandb(lr, batch_size, epochs, len(trainloader.dataset), project, runname, WANDB_KEY, wb_notes)
-    # f = open('training-logs.txt', 'w')
 
 
     if finetune:
@@ -92,7 +93,7 @@ def train(datasetpath, finetune, batch_size, project, runname, mps=False, lr=1e-
         model = DSpinGNN(mps=mps)
         logger.info("Initialized new model for training.")
         # --- PLACE THIS BEFORE YOUR TRAINING LOOP ---
-        model = initialize_shift_scale(model, trainloader)
+        # model = initialize_shift_scale(model, trainloader)
 
     logger.info("###################################")
     # print('Model Architecture: \n', model)
@@ -125,20 +126,26 @@ def train(datasetpath, finetune, batch_size, project, runname, mps=False, lr=1e-
             batch = batch.to(device)
             optimizer.zero_grad()
             
-            pos = batch.pos.requires_grad_(True)
+            batch.pos.requires_grad_(True)
             
             energy = model(batch)
             # NOTE: ensure force() uses create_graph=True internally so backward() works
-            forces = force(energy, pos) 
+            forces = force(energy, batch.pos)
+            # logger.info(f"{logprefix}Forces: {np.linalg.norm(forces.cpu().detach().numpy(), axis=1)}")
             
+            # logger.info(f"Energy shape: {energy.shape}, Ground Truth Energy shape: {batch.y_energy.shape}")
+            # logger.info(f"Forces shape: {forces.shape}, Ground Truth Forces shape: {batch.y_forces.shape}")
+            logger.info(f"Energy magnitudes: {np.sum(energy.cpu().detach().numpy())}, Ground Truth Energy magnitudes: {np.sum(batch.y_energy.cpu().numpy())}")
+            logger.info(f"Force magnitudes: {np.sum(np.linalg.norm(forces.cpu().detach().numpy(), axis=1))}, Ground Truth Force magnitudes: {np.sum(np.linalg.norm(batch.y_forces.cpu().detach().numpy(), axis=1))}")
             loss, losse, lossf = criterion(energy, forces, batch)
 
             loss.backward()
             
             # ADDED: Gradient Clipping to prevent the Epoch 1200 Explosion
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             
             optimizer.step()
+            optimizer.zero_grad()
 
             wandb.log({
                 "train_loss": loss.item(),
@@ -164,10 +171,10 @@ def train(datasetpath, finetune, batch_size, project, runname, mps=False, lr=1e-
             with torch.enable_grad(): 
                 for k, batch in enumerate(valloader):
                     batch = batch.to(device)
-                    pos = batch.pos.requires_grad_(True)
+                    batch.pos.requires_grad_(True)
                     
                     energy = model(batch)
-                    forces = force(energy, pos)
+                    forces = force(energy, batch.pos)
                     
                     valloss, vallosse, vallossf = criterion(energy, forces, batch)
                     
@@ -183,10 +190,10 @@ def train(datasetpath, finetune, batch_size, project, runname, mps=False, lr=1e-
             avg_vallosse = total_vallosse / num_val_graphs
             avg_vallossf = total_vallossf / num_val_graphs
 
-            logger.info("="*30)
-            logger.info(f"RESULTS (Validation Set)")
-            logger.info(f"Validation Loss: {avg_valloss:.5f}")
-            logger.info("="*30)
+            logger.info(f"{logprefix}RESULTS (Validation Set)")
+            logger.info(f"{logprefix}Validation Loss: {avg_valloss:.5f}")
+            logger.info(f"{logprefix}Validation Loss Energy: {avg_vallosse:.5f}")
+            logger.info(f"{logprefix}Validation Loss Forces: {avg_vallossf:.5f}")
             
             wandb.log({
                 "Validation-Loss": avg_valloss,

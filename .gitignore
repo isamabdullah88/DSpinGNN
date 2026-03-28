@@ -13,6 +13,8 @@ wandbkey.py
 vib/
 Results/
 DataSets/
+Outputs/
+wandbkey.txt
 
 # C extensions
 *.so

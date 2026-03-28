@@ -1,31 +1,15 @@
 import torch
 import numpy as np
 
+from .crI3 import CrI3
+
 class CrystalGraphTensor:
-    def __init__(self, a = 6.91, c = 19.26, dz = 1.62):
-        self.a = a
-        self.c = c
-        self.dz = dz
-
-        # Lattice vectors for hexagonal cell
-        veca = torch.tensor([6.91, 0, 0], dtype=torch.float32)
-        vecb = torch.tensor([-6.91*np.cos(np.pi/3), 6.91*np.sin(np.pi/3), 0], dtype=torch.float32)
-        vecc = torch.tensor([0, 0, 19.26], dtype=torch.float32)
-        self.cell = torch.stack((veca, vecb, vecc), dim=0)
+    def __init__(self):
         
-        # Atomic positions in the unit cell
-        cr1 = 1/3*veca + 2/3*vecb
-        cr2 = 2/3*veca + 1/3*vecb
+        self.CrI3 = CrI3()
 
-        It1 = 0.318*veca + 0.0*vecb + 0.60*vecc
-        It2 = 0.0*veca + 0.318*vecb + 0.60*vecc
-        It3 = 0.682*veca + 0.682*vecb + 0.60*vecc
-
-        Ib1 = 0.682*veca + 0.0*vecb + 0.4*vecc
-        Ib2 = 0.0*veca + 0.682*vecb + 0.4*vecc
-        Ib3 = 0.318*veca + 0.318*vecb + 0.4*vecc
-
-        self.pos = torch.tensor(np.array([cr1, cr2, It1, It2, It3, Ib1, Ib2, Ib3]), dtype=torch.float32)
+        self.pos = torch.tensor(self.CrI3.batoms.get_positions(), dtype=torch.float32)
+        self.cell = torch.tensor(self.CrI3.cell, dtype=torch.float32)
 
 
     def tensorgraph(self, rcut):
@@ -66,12 +50,24 @@ class CrystalGraphTensor:
         # print('\nsrcidxs: ', srcidxs)
         # print('\ndstidxs: ', dstidxs)
         # print('\ncellidxs: ', cellidxs)
+        # 4. EXPLICITLY DELETE SELF-LOOPS (Same atom AND Same Cell)
+        # If src == dst AND it's in the home cell (cell shift is [0,0,0])
+        is_home_cell = (stack[cellidxs] == 0).all(dim=1)
+        is_self_loop = (srcidxs == dstidxs) & is_home_cell
 
-        edges = torch.stack((srcidxs, dstidxs), axis=1)
+        # Invert to keep only valid edges
+        valid_edges = ~is_self_loop
+
+        # Apply the filter
+        srcidxs = srcidxs[valid_edges]
+        dstidxs = dstidxs[valid_edges]
+        cellidxs = cellidxs[valid_edges]
+
         # print('\nedges: ', edges.dtype, edges.shape)
         # print('\nedges: ', [tuple(row.tolist()) for row in edges])
         shifts = stack[cellidxs]
         # print('\nshifts: ', [tuple(row.tolist()) for row in shifts])
+        edges = torch.stack((srcidxs, dstidxs), axis=1)
 
         return edges.t(), shifts
     

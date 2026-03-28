@@ -48,7 +48,7 @@ class Radial(nn.Module):
         )
 
     def forward(self, dist):
-        bessel = emath.soft_one_hot_linspace(dist, 0.0, 5.0, self.numbasis, basis='bessel', cutoff=True)
+        bessel = emath.soft_one_hot_linspace(dist, 0.0, self.rcut, self.numbasis, basis='bessel', cutoff=True)
 
         distf = self.model(bessel)
 
@@ -64,7 +64,7 @@ class Convolution(nn.Module):
         super(Convolution, self).__init__()
         self.mps = mps
 
-        self.avg_neighbors = 25.0
+        self.avg_neighbors = 100.0
         
         self.numbasis = numbasis
         self.rcut = rcut
@@ -114,13 +114,15 @@ class Convolution(nn.Module):
         # print('cell: ', cell.shape)
         bcell = cell[graphidxs]
         # print('bcell: ', bcell.shape)
+        edge_shift = batch.edge_shift.to(bcell.dtype)
 
-        tvec = torch.einsum('ecp, ep -> ep', bcell, batch.edge_shift)
+        tvec = torch.einsum('ei, eij -> ej', edge_shift, bcell)
         # print('tvec: ', tvec.shape)
 
         radvec = batch.pos[dst] - batch.pos[src] + tvec
 
         dist = radvec.norm(dim=1, keepdim=False)
+        # print('dist: ', dist)
 
         radial = self.radialMLP(dist)
 
