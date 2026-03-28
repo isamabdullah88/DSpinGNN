@@ -20,8 +20,27 @@ def getdata(datasetpath, batch_size=32):
 
     datalist = torch.load(datasetpath)
 
-    trsize = int(0.8 * len(datalist))
-    vsize = int(0.1 * trsize)
+        # Assuming 'dataset' is your list of Data() objects
+    print("Pre-processing dataset to eliminate the float32 precision trap...")
+
+    # 1. Extract all energies using float64 to ensure perfect precision during the sum
+    all_energies = torch.tensor([data.y_energy.item() for data in datalist], dtype=torch.float64)
+    mean_energy = all_energies.mean()
+
+    print(f"Calculated Mean Energy (Baseline): {mean_energy:.4f} eV")
+
+    # 2. Shift every graph individually and convert back to float32
+    # (We subtract the float64 mean, then cast the result back to float32 for fast training)
+    for data in datalist:
+        shifted_val = data.y_energy.to(torch.float64) - mean_energy
+        data.y_energy = shifted_val.to(torch.float32)
+
+    # 3. Verify the shift worked (the new mean should be mathematically zero)
+    shifted_mean = torch.tensor([data.y_energy.item() for data in datalist]).mean()
+    print(f"Shifted Dataset Mean: {shifted_mean:.6f} eV")
+
+    trsize = int(1.0 * len(datalist))
+    vsize = int(0.0 * trsize)
     ttsize = len(datalist) - trsize - vsize
 
     generator = torch.Generator().manual_seed(42)
@@ -42,7 +61,7 @@ def getdata(datasetpath, batch_size=32):
     return trainloader, valloader, testloader
 if __name__ == "__main__":
     
-    trainloader, valloader, testloader = getdata("./DataSets/GNN/RattleGNN.pth", 1)
+    trainloader, valloader, testloader = getdata("./DataSets/GNN/RattleGNN-Strain_0.0-Rcut_7.0.pth", 1)
 
     forces = []
     for k, batch in enumerate(trainloader):
