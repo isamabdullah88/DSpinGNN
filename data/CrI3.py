@@ -3,10 +3,11 @@ import numpy as np
 from ase import Atoms
 from ase.io import read
 
+from .config import A, C, DZ
 import logging
 
 class CrI3:
-    def __init__(self, a=7.004311, c=19.260000, dz=1.605670, prerelaxed_dir=None):
+    def __init__(self, a=A, c=C, dz=DZ, prerelaxed_dir=None):
         """
         Initialize the CrI3 class with the pristine, fully relaxed lattice parameters.
         
@@ -25,7 +26,7 @@ class CrI3:
         z_low  = 0.5 - z_offset
 
         # Define the hexagonal simulation box (updates automatically if 'a' or 'c' change)
-        cell = [[a, 0, 0],
+        self.cell = [[a, 0, 0],
                 [-a/2, a * np.sqrt(3)/2, 0],
                 [0, 0, c]]
 
@@ -45,7 +46,7 @@ class CrI3:
         # ASE automatically converts these to absolute Cartesian coordinates
         self.batoms = Atoms('Cr2I6', 
                            scaled_positions=scaled_positions, 
-                           cell=cell, 
+                           cell=self.cell, 
                            pbc=[True, True, True])
         
         self.logprefix = "[CrI3]"
