@@ -87,7 +87,7 @@ class DataGenerator:
         """
         Main method to generate the dataset. It iterates over all strains, parses the DFT and TB2J outputs, and saves the PyG Data objects.
         """
-        db = connect('./DataSets/GNN/RattleGNN-Strain_0.0-Rcut_7.0.db')
+        # db = connect('./DataSets/GNN/RattleGNN-Strain_0.0-Rcut_7.0.db')
         numsamples = 0
         for stntype, stnvalues in zip(self.stntypes, self.strains):
             wkdirs = [os.path.join(datasetdir, dataset) for dataset in [f"Rattle-{stntype}/{self.phase}", f"Rattle-{stntype}-4/{self.phase}"]]
@@ -96,31 +96,16 @@ class DataGenerator:
                     continue
                 print(f"Processing Rattle: {wkdir.split('/')[-2]} for stntype: {stntype}...")
                 for strain in stnvalues:
-                    if strain != 0.0:
-                        continue # Only use unstrained samples for baseline model
-
                     for rattleidx in rattleidxs:
                         print(f"Processing strain {strain:.4f} ({rattleidx+1}/{len(rattleidxs)})...")
                         
                         data, atoms = self.parse(wkdir, stntype, strain, rattleidx)
                         if data is not None:
                             self.dataset.append(data)
-                            db.write(atoms)
+                            # db.write(atoms)
                             numsamples += 1
                         else:
                             print(f"Data parsing failed for strain {strain:.4f} (Rattle idx: {rattleidx}). Skipping this sample.")
-            
-            # wkdir = 
-            # for strain in stnvalues:
-            #     for rattleidx in rattleidxs:
-            #         print(f"Processing strain {strain:.4f} ({rattleidx+1}/{len(rattleidxs)})...")
-                    
-            #         data = self.parse(wkdir, stntype, strain, rattleidx)
-            #         if data is not None:
-            #             self.dataset.append(data)
-            #             numsamples += 1
-            #         else:
-            #             print(f"Data parsing failed for strain {strain:.4f} (Rattle idx: {rattleidx}). Skipping this sample.")
 
         print(f"Dataset generation complete. Total samples: {numsamples}")
 
@@ -134,7 +119,7 @@ if __name__ == "__main__":
 
     RCUT = 7.0    
     datasetdir = "./DataSets/GNN/"
-    datasetpath = f"./DataSets/GNN/RattleGNN-Strain_0.0-Rcut_{RCUT:.1f}.pth"
+    datasetpath = f"./DataSets/GNN/RattleGNN-Type_All-Strain_0.5-Rcut_{RCUT:.1f}.pth"
 
     stntypes = ['Biaxial', 'Uniaxial_X', 'Shear_XY']
     strains = [[float(s) for s in np.linspace(-0.12, 0.12, 15) if -0.05 < s < 0.05]]
