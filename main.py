@@ -60,6 +60,11 @@ def main(args):
 
     # 5. Optimizer & Loss
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    # Define the Scheduler
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode='min', factor=0.5, patience=20, min_lr=1e-6, verbose=True
+    )
+
     criterion = MultiTaskLoss(energy_weight=1.0, force_weight=1000.0)
 
     # 6. Initialize Trainer & Run
@@ -71,7 +76,8 @@ def main(args):
         criterion=criterion,
         device=device,
         logger=logger,
-        config=args
+        config=args,
+        scheduler=scheduler
     )
     
     trainer.fit()
