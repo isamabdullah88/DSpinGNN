@@ -92,8 +92,6 @@ class DataGenerator:
         for stntype, stnvalues in zip(self.stntypes, self.strains):
             wkdirs = [os.path.join(datasetdir, dataset) for dataset in [f"Rattle-{stntype}/{self.phase}", f"Rattle-{stntype}-4/{self.phase}"]]
             for wkdir in wkdirs:
-                if wkdir.split('/')[-2] == 'Rattle-Uniaxial_X':
-                    continue
                 print(f"Processing Rattle: {wkdir.split('/')[-2]} for stntype: {stntype}...")
                 for strain in stnvalues:
                     for rattleidx in rattleidxs:
