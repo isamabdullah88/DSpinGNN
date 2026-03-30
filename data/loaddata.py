@@ -39,8 +39,8 @@ def getdata(datasetpath, batch_size=32):
     shifted_mean = torch.tensor([data.y_energy.item() for data in datalist]).mean()
     print(f"Shifted Dataset Mean: {shifted_mean:.6f} eV")
 
-    trsize = int(1.0 * len(datalist))
-    vsize = int(0.0 * trsize)
+    trsize = int(0.9 * len(datalist))
+    vsize = int(0.1 * trsize)
     ttsize = len(datalist) - trsize - vsize
 
     generator = torch.Generator().manual_seed(42)
@@ -65,12 +65,6 @@ if __name__ == "__main__":
 
     forces = []
     for k, batch in enumerate(trainloader):
-        # print(f"Batch {k+1}:")
-        # print('pos: ', batch.pos.shape)
-        # print('z: ', batch.z.shape)
-        # print('edge_index: ', batch.edge_index.shape)
-        # print('y_energy: ', batch.y_energy.shape)
-        # print('batch: ', batch.batch.shape)
         print('y_forces: ', torch.norm(batch.y_forces, dim=1).shape)
         forces.append(torch.norm(batch.y_forces, dim=1))
 
