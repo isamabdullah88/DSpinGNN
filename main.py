@@ -65,7 +65,7 @@ def main(args):
         optimizer, mode='min', factor=0.5, patience=20, min_lr=1e-6, verbose=True
     )
 
-    criterion = MultiTaskLoss(energy_weight=1.0, force_weight=1000.0)
+    criterion = MultiTaskLoss(wenergy=1.0, wforce=100.0, wexchange=100.0)
 
     # 6. Initialize Trainer & Run
     trainer = Trainer(
