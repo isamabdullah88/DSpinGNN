@@ -39,8 +39,8 @@ def getdata(datasetpath, batch_size=32):
     shifted_mean = torch.tensor([data.y_energy.item() for data in datalist]).mean()
     print(f"Shifted Dataset Mean: {shifted_mean:.6f} eV")
 
-    trsize = int(0.9 * len(datalist))
-    vsize = int(0.1 * trsize)
+    trsize = int(1.0 * len(datalist))
+    vsize = int(0.0 * trsize)
     ttsize = len(datalist) - trsize - vsize
 
     generator = torch.Generator().manual_seed(42)
@@ -61,7 +61,7 @@ def getdata(datasetpath, batch_size=32):
     return trainloader, valloader, testloader
 if __name__ == "__main__":
     
-    trainloader, valloader, testloader = getdata("./DataSets/GNN/RattleGNN-Strain_0.0-Rcut_7.0.pth", 1)
+    trainloader, valloader, testloader = getdata("./DataSets/GNN/RattleGNN-Exchange-Strain_All-Rcut_7.0.pth", 1)
 
     forces = []
     for k, batch in enumerate(trainloader):
