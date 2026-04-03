@@ -58,7 +58,7 @@ class ExchangeGraph:
         cr_edges = []
         exchangejs = []
         edgeshifts = []
-        dists = []
+        edgedists = []
         print('rcut: ', rcut)
         
         for item in TB2Jdict.items():
@@ -74,8 +74,9 @@ class ExchangeGraph:
                 # print('i,j: ', i, j, 'distance: ', ipos.dist(fpos), 'exceeds cutoff: ', rcut)
                 continue
 
-            dists.append(ipos.dist(fpos).item())
-            dists.append(ipos.dist(fpos).item()) # Symmetric edge
+            edgedists.append(ipos.dist(fpos).item())
+            edgedists.append(ipos.dist(fpos).item()) # Symmetric edge
+
             cr_edges.append([i, j])
             cr_edges.append([j, i]) # Undirected/symmetric edge
             
@@ -97,6 +98,7 @@ class ExchangeGraph:
         cr_edges = torch.tensor(cr_edges, dtype=torch.long).t().contiguous()
         exchangejs = torch.tensor(exchangejs, dtype=torch.float32).view(-1, 1) # Target J values
         edgeshifts = torch.tensor(edgeshifts, dtype=torch.int64) # Edge shifts for periodicity
+        edgedists = torch.tensor(edgedists, dtype=torch.float32)
         
         # print('cr_edges: ', cr_edges.dtype, cr_edges.shape)
         # print('exchangejs: ', exchangejs.dtype, exchangejs.shape)
@@ -116,4 +118,4 @@ class ExchangeGraph:
         #     exchangejs = exchangejs
         # )
         
-        return cr_edges, exchangejs, edgeshifts
+        return cr_edges, exchangejs, edgeshifts, edgedists
