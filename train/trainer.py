@@ -60,10 +60,13 @@ class Trainer:
         self.logger.info("Starting evaluation...")
         
         total_valloss, total_vallosse, total_vallossf, total_vallossx = 0.0, 0.0, 0.0, 0.0
-        total_mae_energy, total_mae_force = 0.0, 0.0
+        total_mae_energy, total_mae_force, total_mae_exchange, maex1, maex2 = 0.0, 0.0, 0.0, 0.0, 0.0
         
         num_val_graphs = 0
         num_val_atoms = 0
+        numedges = 0
+        numedges1 = 0
+        numedges2 = 0
         
         with torch.enable_grad(): 
             for batch in self.val_loader:
@@ -72,14 +75,27 @@ class Trainer:
                 
                 energy, exchange = self.model(batch)
                 forces = force(energy, batch.pos)
-                
+
+                self.logger.info(f"Exchange predictions: {np.sum(np.abs(exchange.detach().cpu().numpy())):.4f}")
+                self.logger.info(f"Exchange targets: {np.sum(np.abs(batch.y_exchange.detach().cpu().numpy())):.4f}")
+
                 valloss, vallosse, vallossf, vallossx = self.criterion(energy, forces, exchange, batch)
                 
                 e_err = torch.abs(energy.detach().view(-1) - batch.y_energy.view(-1)).sum().item()
                 f_err = torch.abs(forces.detach() - batch.y_forces).sum().item()
+
+                j1mask = batch.cr_edge_dist < 4.5
+                j2mask = batch.cr_edge_dist >= 4.5
+
+                xerr1 = torch.abs(exchange[j1mask].detach().view(-1) - batch.y_exchange[j1mask].view(-1)).sum().item()
+                xerr2 = torch.abs(exchange[j2mask].detach().view(-1) - batch.y_exchange[j2mask].view(-1)).sum().item()
+                xerr = torch.abs(exchange.detach().view(-1) - batch.y_exchange.view(-1)).sum().item()
                 
                 graphs_in_batch = batch.num_graphs
                 atoms_in_batch = batch.pos.shape[0]
+                edges1 = j1mask.sum().item()
+                edges2 = j2mask.sum().item()
+                edges = batch.cr_edge_index.shape[1]
                 
                 total_valloss += valloss.item() * graphs_in_batch
                 total_vallosse += vallosse.item() * graphs_in_batch
@@ -87,9 +103,17 @@ class Trainer:
                 total_vallossx += vallossx.item() * graphs_in_batch
                 total_mae_energy += e_err
                 total_mae_force += f_err
-                
+                total_mae_exchange += xerr
+
+                maex1 += xerr1
+                maex2 += xerr2
+
                 num_val_graphs += graphs_in_batch
                 num_val_atoms += atoms_in_batch
+                numedges += edges
+                numedges1 += edges1
+                numedges2 += edges2
+
 
         avg_valloss = total_valloss / num_val_graphs
         avg_vallosse = total_vallosse / num_val_graphs
@@ -98,20 +122,28 @@ class Trainer:
 
         mae_energy_per_atom = total_mae_energy / num_val_atoms
         mae_force_per_comp = total_mae_force / (num_val_atoms * 3)
+        maex_peredge = total_mae_exchange / numedges
+        maex1_peredge = maex1 / numedges1 if numedges1 > 0 else 0
+        maex2_peredge = maex2 / numedges2 if numedges2 > 0 else 0
 
         self.logger.info("[TRAIN] RESULTS (Validation Set)")
         self.logger.info(f"[TRAIN] Val Loss (MSE):     {avg_valloss:.5f}")
         self.logger.info(f"[TRAIN] Val Energy (MAE):   {mae_energy_per_atom:.5f} eV/atom")
         self.logger.info(f"[TRAIN] Val Forces (MAE):   {mae_force_per_comp:.5f} eV/A")
-        self.logger.info(f"[TRAIN] Val Exchange (MAE): {avg_vallossx:.5f}")
+        self.logger.info(f"[TRAIN] Val Exchange (MAE): {maex_peredge:.5f}")
+        self.logger.info(f"[TRAIN] Val Exchange (MAE) - Short Range: {maex1_peredge:.5f}")
+        self.logger.info(f"[TRAIN] Val Exchange (MAE) - Long Range: {maex2_peredge:.5f}")
 
         wandb.log({
             "Validation-Loss": avg_valloss,
             "Validation-Loss-Energy": avg_vallosse,
             "Validation-Loss-Forces": avg_vallossf,
             "Validation-Loss-Exchange": avg_vallossx,
-            "MAE-Energy/val": mae_energy_per_atom,
-            "MAE-Force/val": mae_force_per_comp,
+            "MAE-Energy": mae_energy_per_atom,
+            "MAE-Force": mae_force_per_comp,
+            "MAE-Exchange": maex_peredge,
+            "MAE-Exchange-Short": maex1_peredge,
+            "MAE-Exchange-Long": maex2_peredge,
             "epoch": epoch
         })
         
