@@ -66,7 +66,7 @@ class DataGenerator:
 
         edgeidxs, edgeshifts = self.cgraph.tensorgraph(self.rcut)
         
-        cr_edges, exchangejs, cr_shifts = self.egraph.graph(tb2jpath, self.rcut, atomsout)
+        cr_edges, exchangejs, cr_shifts, cr_edgedists = self.egraph.graph(tb2jpath, self.rcut, atomsout)
 
         data = Data(
             z=z,
@@ -78,6 +78,7 @@ class DataGenerator:
             edge_shift=edgeshifts,
             cr_edge_index=cr_edges,
             cr_edge_shift=cr_shifts,
+            cr_edge_dist=cr_edgedists,
             y_exchange=exchangejs
         )
 
