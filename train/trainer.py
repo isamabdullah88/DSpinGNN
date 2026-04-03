@@ -43,12 +43,12 @@ class Trainer:
             self.optimizer.step()
             
             wandb.log({
-                "train_loss": loss.item(),
-                "train_loss_energy": losse.item(),
-                "train_loss_forces": lossf.item(),
-                "train_loss_exchange": lossx.item(),
+                "Train/train_loss": loss.item(),
+                "Train/train_loss_energy": losse.item(),
+                "Train/train_loss_forces": lossf.item(),
+                "Train/train_loss_exchange": lossx.item(),
                 "iter": self.train_size * epoch + k,
-                "learning_rate": self.optimizer.param_groups[0]['lr']
+                "Train/learning_rate": self.optimizer.param_groups[0]['lr']
             })
             
             epoch_loss = loss.item()
@@ -135,15 +135,15 @@ class Trainer:
         self.logger.info(f"[TRAIN] Val Exchange (MAE) - Long Range: {maex2_peredge:.5f}")
 
         wandb.log({
-            "Validation-Loss": avg_valloss,
-            "Validation-Loss-Energy": avg_vallosse,
-            "Validation-Loss-Forces": avg_vallossf,
-            "Validation-Loss-Exchange": avg_vallossx,
-            "MAE-Energy": mae_energy_per_atom,
-            "MAE-Force": mae_force_per_comp,
-            "MAE-Exchange": maex_peredge,
-            "MAE-Exchange-Short": maex1_peredge,
-            "MAE-Exchange-Long": maex2_peredge,
+            "Test/MAE-Exchange": maex_peredge,
+            "Test/MAE-Exchange-Short": maex1_peredge,
+            "Test/MAE-Exchange-Long": maex2_peredge,
+            "Test/MAE-Energy": mae_energy_per_atom,
+            "Test/MAE-Force": mae_force_per_comp,
+            "Test/Validation-Loss": avg_valloss,
+            "Test/Validation-Loss-Energy": avg_vallosse,
+            "Test/Validation-Loss-Forces": avg_vallossf,
+            "Test/Validation-Loss-Exchange": avg_vallossx,
             "epoch": epoch
         })
         
