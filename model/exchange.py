@@ -40,7 +40,7 @@ class ExchangeBlock(nn.Module):
 
         irrepsin = o3.Irreps(f"{l0dim}x0e + {l1dim}x1o + {l2dim}x2e")
         # irrepsout = o3.Irreps(f"{l0dim}x0e")
-        out_scalars = 128
+        out_scalars = 64
         irrepsout = o3.Irreps(f"{out_scalars}x0e")
 
         # self.linear = o3.Linear(irrepsin, irrepsout)
@@ -50,7 +50,7 @@ class ExchangeBlock(nn.Module):
             irreps_out=irrepsout
         )
 
-        numbasis = 50
+        numbasis = 64
         self.rembedding = RadialEmbedding(cutoff=7.0, num_basis=numbasis)
 
         self.mlp = nn.Sequential(
