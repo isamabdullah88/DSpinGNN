@@ -64,7 +64,7 @@ class Convolution(nn.Module):
         super(Convolution, self).__init__()
         self.mps = mps
 
-        self.avg_neighbors = 100.0
+        self.avg_neighbors = 50.0
         
         self.numbasis = numbasis
         self.rcut = rcut
