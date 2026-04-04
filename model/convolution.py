@@ -64,7 +64,7 @@ class Convolution(nn.Module):
         super(Convolution, self).__init__()
         self.mps = mps
 
-        self.avg_neighbors = 100.0
+        self.avg_neighbors = 50.0
         
         self.numbasis = numbasis
         self.rcut = rcut
@@ -94,36 +94,24 @@ class Convolution(nn.Module):
 
     def forward(self, nodes, batch):
 
-        # if self.mps:
-        #     edgeidxs = radius_graph(pos.cpu(), r=self.rcut, batch=batch.cpu(), max_num_neighbors=100).to("mps")
-        # else:
-        #     edgeidxs = radius_graph(pos, r=self.rcut, batch=batch, max_num_neighbors=100)
-
-        # print('edge idx: ', batch.edge_index.shape)
         src, dst = batch.edge_index
-
-        # print('edge idx: ', batch.edge_index.shape)
 
         neighbors = nodes[src]
 
         graphidxs = batch.batch[src]
-        # print('graphidxs: ', graphidxs.shape)
-        # edge_shifts = batch.edge_shift[graphidxs]
-        # print('edge_shifts: ', edge_shifts.shape)
+        
         cell = batch.cell.view(-1, 3, 3)
-        # print('cell: ', cell.shape)
+        
         bcell = cell[graphidxs]
-        # print('bcell: ', bcell.shape)
+        
         edge_shift = batch.edge_shift.to(bcell.dtype)
 
         tvec = torch.einsum('ei, eij -> ej', edge_shift, bcell)
-        # print('tvec: ', tvec.shape)
-
+        
         radvec = batch.pos[dst] - batch.pos[src] + tvec
 
         dist = radvec.norm(dim=1, keepdim=False)
-        # print('dist: ', dist)
-
+        
         radial = self.radialMLP(dist)
 
         ylm = o3.spherical_harmonics(l=[0, 1, 2], x=radvec, normalize=True, normalization='component')

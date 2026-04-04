@@ -5,7 +5,7 @@ from ase import units
 from ase.md import MDLogger
 
 from trainutils import loadmodel
-from MD.nequipcalc import NequIPCalculator
+from MDynamics.nequipcalc import NequIPCalculator
 
 # 1. Setup atoms and velocities
 atoms = read('aspirin.xyz')

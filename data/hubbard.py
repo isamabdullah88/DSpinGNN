@@ -19,6 +19,7 @@ class EspressoHubbard:
 
 
     # ---------------------------------------------------------------------------------------------
+    # TODO: Make this foolproof. Don't give atoms as input, and raise strict errors if parsing fails.
     def parseatoms(self, content, atoms):
         # Parse the atomic positions and cell from the QE input file content. This is necessary 
         # because the final geometry may differ from the initial structure, and we want to ensure

@@ -60,13 +60,13 @@ class DataGenerator:
             return None, None
 
         #  Parse TB2J outputs for this strain
-        # tb2jpath = os.path.join(wkdir, f"Strain_{stntype}_{stnvalue:.4f}", "tmp/TB2J_results/Multibinit", "exchange.xml")
-        # if not os.path.exists(tb2jpath):
-        #     print(f"TB2J output file not found for strain {stnvalue:.4f} at {tb2jpath}. Skipping TB2J parsing...")
-            # self.logger.warning(f"{self.lprefix}TB2J output file not found for strain {stnvalue:.4f} at {tb2jpath}. Skipping TB2J parsing...")
-        edgeidxs, edgeshifts = self.cgraph.tensorgraph(self.rcut)
+        tb2jpath = os.path.join(wkdir, f"Strain_{stntype}_{stnvalue:.4f}_{rattleidx}", "tmp/TB2J_results/Multibinit", "exchange.xml")
+        if not os.path.exists(tb2jpath):
+            self.logger.warning(f"{self.lprefix}TB2J output file not found for strain {stnvalue:.4f} at {tb2jpath}. Skipping TB2J parsing...")
+
+        edgeidxs, edgeshifts = self.cgraph.tensorgraph(self.rcut, atomsout)
         
-        # cr_edges, exchangejs, cr_shifts = self.egraph.graph(tb2jpath)
+        cr_edges, exchangejs, cr_shifts, cr_edgedists = self.egraph.graph(tb2jpath, self.rcut, atomsout)
 
         data = Data(
             z=z,
@@ -76,9 +76,10 @@ class DataGenerator:
             y_forces=torch.tensor(forces, dtype=torch.float32),
             edge_index=edgeidxs,
             edge_shift=edgeshifts,
-            # cr_edge_index=cr_edges,
-            # cr_edge_shift=cr_shifts,
-            # exchangejs=exchangejs
+            cr_edge_index=cr_edges,
+            cr_edge_shift=cr_shifts,
+            cr_edge_dist=cr_edgedists,
+            y_exchange=exchangejs
         )
 
         return data, atomsout
@@ -90,22 +91,23 @@ class DataGenerator:
         # db = connect('./DataSets/GNN/RattleGNN-Strain_0.0-Rcut_7.0.db')
         numsamples = 0
         for stntype, stnvalues in zip(self.stntypes, self.strains):
-            wkdirs = [os.path.join(datasetdir, dataset) for dataset in [f"Rattle-{stntype}/{self.phase}", f"Rattle-{stntype}-4/{self.phase}"]]
+            # wkdirs = [os.path.join(datasetdir, dataset) for dataset in [f"Rattle-Exchange-{stntype}/{self.phase}", f"Rattle-Exchange-{stntype}-4/{self.phase}"]]
+            wkdirs = [os.path.join(datasetdir, f"Rattle-Exchange-{stntype}-4/{self.phase}")]
             for wkdir in wkdirs:
-                print(f"Processing Rattle: {wkdir.split('/')[-2]} for stntype: {stntype}...")
+                self.logger.info(f"Processing work directory: {wkdir.split('/')[-2]} for stntype: {stntype}...")
                 for strain in stnvalues:
                     for rattleidx in rattleidxs:
-                        print(f"Processing strain {strain:.4f} ({rattleidx+1}/{len(rattleidxs)})...")
+                        self.logger.info(f"Processing strain (rattled) {strain:.4f} ({rattleidx+1}/{len(rattleidxs)})...")
                         
                         data, atoms = self.parse(wkdir, stntype, strain, rattleidx)
                         if data is not None:
                             self.dataset.append(data)
                             # db.write(atoms)
                             numsamples += 1
-                        else:
-                            print(f"Data parsing failed for strain {strain:.4f} (Rattle idx: {rattleidx}). Skipping this sample.")
+                        # else:
+                            # self.logger.warning(f"Data parsing failed for strain {strain:.4f} (Rattle idx: {rattleidx}). Skipping this sample.")
 
-        print(f"Dataset generation complete. Total samples: {numsamples}")
+        self.logger.info(f"Dataset generation complete. Total samples: {numsamples}")
 
         return self.dataset
 
@@ -116,19 +118,19 @@ if __name__ == "__main__":
     logger = getLogger(__name__)
 
     RCUT = 7.0    
-    datasetdir = "./DataSets/GNN/"
-    datasetpath = f"./DataSets/GNN/RattleGNN-Type_All-Strain_0.5-Rcut_{RCUT:.1f}.pth"
+    datasetdir = "./DataSets/Exchange-Rattled/"
+    datasetpath = f"./DataSets/GNN/RattleGNN-Exchange-Strain_All-Rcut_{RCUT:.1f}.pth"
 
-    stntypes = ['Biaxial', 'Uniaxial_X', 'Shear_XY']
-    strains = [[float(s) for s in np.linspace(-0.12, 0.12, 15) if -0.05 < s < 0.05]]
-    strains += [[float(s) for s in np.linspace(-0.15, 0.15, 21) if -0.05 < s < 0.05]]
-    strains += [[float(s) for s in np.linspace(-0.15, 0.15, 21) if -0.05 < s < 0.05]]
+    stntypes = ['Uniaxial_X']
+    # strains = [[float(s) for s in np.linspace(-0.12, 0.12, 15) if -0.05 < s < 0.05]]
+    strains = [[float(s) for s in np.linspace(-0.15, 0.15, 21) if -0.04 < s < 0.05]]
+    # strains += [[float(s) for s in np.linspace(-0.15, 0.15, 21) if -0.05 < s < 0.05]]
     print('strains: ', strains)
     rattleidxs = list(range(10))
     datagen = DataGenerator(RCUT, stntypes=stntypes, strains=strains, phase='FM')
 
     dataset = datagen.generate(datasetdir=datasetdir, rattleidxs=rattleidxs)
 
-    print(f"Generated dataset with {len(dataset)} samples. Saving to {datasetpath}...")
+    datagen.logger.info(f"Saving to {datasetpath}...")
     torch.save(dataset, datasetpath)
 
