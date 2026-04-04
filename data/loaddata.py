@@ -27,6 +27,12 @@ def getdata(datasetpath, batch_size=32):
     all_energies = torch.tensor([data.y_energy.item() for data in datalist], dtype=torch.float64)
     mean_energy = all_energies.mean()
 
+    jvalslist = [j for data in datalist for j in data.y_exchange.view(-1).tolist()]
+    # print('javalslist: ', jvalslist)
+    jvals = torch.tensor(jvalslist, dtype=torch.float64)
+    mean_jval = jvals.mean()
+    print(f"Calculated Mean Exchange J (Baseline): {mean_jval:.4f} meV")
+
     print(f"Calculated Mean Energy (Baseline): {mean_energy:.4f} eV")
 
     # 2. Shift every graph individually and convert back to float32
@@ -34,10 +40,18 @@ def getdata(datasetpath, batch_size=32):
     for data in datalist:
         shifted_val = data.y_energy.to(torch.float64) - mean_energy
         data.y_energy = shifted_val.to(torch.float32)
+        data.y_exchange = data.y_exchange.to(torch.float64) - mean_jval
+        data.y_exchange = data.y_exchange.to(torch.float32)
 
     # 3. Verify the shift worked (the new mean should be mathematically zero)
     shifted_mean = torch.tensor([data.y_energy.item() for data in datalist]).mean()
     print(f"Shifted Dataset Mean: {shifted_mean:.6f} eV")
+
+    jvalslist = [j for data in datalist for j in data.y_exchange.view(-1).tolist()]
+    # print('javalslist: ', jvalslist)
+    jvals = torch.tensor(jvalslist, dtype=torch.float64)
+    meanj = jvals.mean()
+    print(f"Shifted Dataset Mean Exchange J: {meanj:.6f} meV")
 
     trsize = int(1.0 * len(datalist))
     vsize = int(0.0 * trsize)
