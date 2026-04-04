@@ -5,18 +5,20 @@ from .crI3 import CrI3
 
 class CrystalGraphTensor:
     def __init__(self):
-        
-        self.CrI3 = CrI3()
+        pass
+        # self.CrI3 = CrI3()
 
-        self.pos = torch.tensor(self.CrI3.batoms.get_positions(), dtype=torch.float32)
-        self.cell = torch.tensor(self.CrI3.cell, dtype=torch.float32)
+        # self.pos = torch.tensor(self.CrI3.batoms.get_positions(), dtype=torch.float32)
+        # self.cell = torch.tensor(self.CrI3.cell, dtype=torch.float32)
 
 
-    def tensorgraph(self, rcut):
+    def tensorgraph(self, rcut, atoms):
         """
         Builds a graph with periodic boundary conditions from scratch including ghost atoms using PyTorch tensors
         """
-        N = 8
+        N = atoms.get_global_number_of_atoms()
+        pos = torch.tensor(atoms.get_positions(), dtype=torch.float32)
+        cell = torch.tensor(atoms.get_cell(), dtype=torch.float32)
         
         mx, my = torch.meshgrid(torch.tensor([-1, 0, 1], dtype=torch.int64), torch.tensor([-1, 0, 1], dtype=torch.int64), indexing='ij')
         mz = torch.zeros_like(mx)
@@ -28,15 +30,15 @@ class CrystalGraphTensor:
         # print('stack: ', stack.dtype, stack.shape)
         # print('stack: ', [tuple(row.tolist()) for row in stack])
         
-        translations = torch.mm(stack.to(torch.float32), self.cell)
-        # print('\npositions: \n', [tuple(row.tolist()) for row in self.pos])
+        translations = torch.mm(stack.to(torch.float32), cell)
+        # print('\npositions: \n', [tuple(row.tolist()) for row in pos])
         # print('\ntranslations: \n', [tuple(row.tolist()) for row in translations])
 
-        ghostpos = self.pos.unsqueeze(0) + translations.unsqueeze(1)
+        ghostpos = pos.unsqueeze(0) + translations.unsqueeze(1)
         ghostpos = ghostpos.view(-1, 3)
         # print('\nghostpos: \n', [tuple(row.tolist()) for row in ghostpos])
 
-        dist = torch.cdist(ghostpos, self.pos)
+        dist = torch.cdist(ghostpos, pos)
         # print('\ndist: ', dist.dtype, dist.shape)
 
         mask = (dist > 1e-4) & (dist <= rcut)
@@ -81,6 +83,6 @@ if __name__ == "__main__":
  
     rcut = 5.0
     
-    edges, tshifts = crystal.tensorgraph(rcut=rcut)
+    edges, tshifts = crystal.tensorgraph(rcut=rcut, atoms=atoms)
 
     verify_against_ase(crystal.pos, crystal.cell, z, edges, tshifts, cutoff=rcut)
