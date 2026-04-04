@@ -25,7 +25,7 @@ class ExchangeGraph:
         # print('list: ', spinexchange_list)
         for interaction in spinexchange_list.findall('spin_exchange_term'):
             # print('interaction: ', interaction)
-            ijR = interaction.find('ijR').text.split(' ')
+            ijR = interaction.find('ijR').text.split()
             i = int(ijR[0])
             j = int(ijR[1])
             Rx = int(ijR[2])
@@ -59,7 +59,7 @@ class ExchangeGraph:
         exchangejs = []
         edgeshifts = []
         edgedists = []
-        print('rcut: ', rcut)
+        # print('rcut: ', rcut)
         
         for item in TB2Jdict.items():
             (i, j, Rx, Ry, Rz), jval = item
@@ -75,17 +75,17 @@ class ExchangeGraph:
                 continue
 
             edgedists.append(ipos.dist(fpos).item())
-            edgedists.append(ipos.dist(fpos).item()) # Symmetric edge
+            # edgedists.append(ipos.dist(fpos).item()) # Symmetric edge
 
             cr_edges.append([i, j])
-            cr_edges.append([j, i]) # Undirected/symmetric edge
+            # cr_edges.append([j, i]) # Undirected/symmetric edge
             
             # jval = TB2Jdict[(i, j), R]
             exchangejs.append(jval)
-            exchangejs.append(jval) # Symmetric J
+            # exchangejs.append(jval) # Symmetric J
 
             edgeshifts.append([Rx, Ry, Rz])
-            edgeshifts.append([-Rx, -Ry, -Rz]) # Shift for symmetric edge
+            # edgeshifts.append([-Rx, -Ry, -Rz]) # Shift for symmetric edge
 
             
         # import matplotlib.pyplot as plt
