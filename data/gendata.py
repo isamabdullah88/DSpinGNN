@@ -64,7 +64,7 @@ class DataGenerator:
         if not os.path.exists(tb2jpath):
             self.logger.warning(f"{self.lprefix}TB2J output file not found for strain {stnvalue:.4f} at {tb2jpath}. Skipping TB2J parsing...")
 
-        edgeidxs, edgeshifts = self.cgraph.tensorgraph(self.rcut)
+        edgeidxs, edgeshifts = self.cgraph.tensorgraph(self.rcut, atomsout)
         
         cr_edges, exchangejs, cr_shifts, cr_edgedists = self.egraph.graph(tb2jpath, self.rcut, atomsout)
 
