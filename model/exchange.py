@@ -40,8 +40,8 @@ class ExchangeBlock(nn.Module):
 
         irrepsin = o3.Irreps(f"{l0dim}x0e + {l1dim}x1o + {l2dim}x2e")
         # irrepsout = o3.Irreps(f"{l0dim}x0e")
-        out_scalars = 64
-        irrepsout = o3.Irreps(f"{out_scalars}x0e")
+        numscalars = 128
+        irrepsout = o3.Irreps(f"{numscalars}x0e")
 
         # self.linear = o3.Linear(irrepsin, irrepsout)
         self.tp = o3.FullyConnectedTensorProduct(
@@ -50,17 +50,31 @@ class ExchangeBlock(nn.Module):
             irreps_out=irrepsout
         )
 
+        self.normlayer = nn.LayerNorm(numscalars)
+
         numbasis = 64
         self.rembedding = RadialEmbedding(cutoff=7.0, num_basis=numbasis)
 
-        self.mlp = nn.Sequential(
-            nn.Linear(out_scalars + numbasis, 64),
+        self.distfilter = nn.Sequential(
+            nn.Linear(numbasis, 128),
             nn.SiLU(),
+            nn.Linear(128, numscalars)
+        )
+
+        self.mlp = nn.Sequential(
+            # nn.LayerNorm(indim),
+            nn.Linear(numscalars, 512),
+            nn.SiLU(),
+            # nn.LayerNorm(512),
+            # nn.Linear(512, 512),
+            # nn.SiLU(),
             # nn.Linear(256, 128),
             # nn.SiLU(),
-            nn.Linear(64, 32),
-            nn.SiLU(),
-            nn.Linear(32, 1)
+            # nn.Linear(128, 64),
+            # nn.SiLU(),
+            # nn.Linear(64, 32),
+            # nn.SiLU(),
+            nn.Linear(512, 1)
         )
 
 
@@ -89,21 +103,25 @@ class ExchangeBlock(nn.Module):
         
         radvec = batch.pos[dst] - batch.pos[src] + tvec
 
-        dist = radvec.norm(dim=1, keepdim=False)
+        dist = radvec.norm(dim=1, keepdim=False).view(-1, 1)
         
         # l0feat_src = self.linear(nodes[src])
         # l0feat_dst = self.linear(nodes[dst])
 
         mixed = self.tp(nodes[src], nodes[dst])
+
+        mixednorm = self.normlayer(mixed)
         # print('l0feat_src: ', l0feat_src.shape)
         # print('l0feat_dst: ', l0feat_dst.shape)
         # print('dist: ', dist.shape)
         distembedding = self.rembedding(dist)
+        distfilter = self.distfilter(distembedding)
 
-        inx = torch.cat([mixed, distembedding], dim=1)
+        regulated_feat = mixednorm * distfilter
+        # inx = torch.cat([mixednorm, distfilter], dim=1)
         # print('inx: ', inx.shape)
 
-        outx = self.mlp(inx)
+        outx = self.mlp(regulated_feat)
         # print('outx: ', outx.shape)
 
         return outx
