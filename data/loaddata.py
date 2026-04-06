@@ -5,23 +5,19 @@ Parse PyTorch Geometric Data objects.
 Author: Isam Balghari
 """
 
-from turtle import pos
-
 import torch
 from torch_geometric.loader import DataLoader
 from torch.utils.data import random_split
 import logging
 
-# logging.basicConfig(level=logging.INFO)
-# logger = logging.getLogger(__name__)
-
 def getdata(datasetpath, batch_size=32):
     logprefix = "[DATA] "
+    logger = logging.getLogger(__name__)
 
     datalist = torch.load(datasetpath)
 
         # Assuming 'dataset' is your list of Data() objects
-    print("Pre-processing dataset to eliminate the float32 precision trap...")
+    logger.info(f"{logprefix}Pre-processing dataset to eliminate the float32 precision trap...")
 
     # 1. Extract all energies using float64 to ensure perfect precision during the sum
     all_energies = torch.tensor([data.y_energy.item() for data in datalist], dtype=torch.float64)
@@ -31,9 +27,9 @@ def getdata(datasetpath, batch_size=32):
     # print('javalslist: ', jvalslist)
     jvals = torch.tensor(jvalslist, dtype=torch.float64)
     mean_jval = jvals.mean()
-    print(f"Calculated Mean Exchange J (Baseline): {mean_jval:.4f} meV")
+    logger.info(f"{logprefix}Calculated Mean Exchange J (Baseline): {mean_jval:.4f} meV")
 
-    print(f"Calculated Mean Energy (Baseline): {mean_energy:.4f} eV")
+    logger.info(f"{logprefix}Calculated Mean Energy (Baseline): {mean_energy:.4f} eV")
 
     # 2. Shift every graph individually and convert back to float32
     # (We subtract the float64 mean, then cast the result back to float32 for fast training)
@@ -45,13 +41,13 @@ def getdata(datasetpath, batch_size=32):
 
     # 3. Verify the shift worked (the new mean should be mathematically zero)
     shifted_mean = torch.tensor([data.y_energy.item() for data in datalist]).mean()
-    print(f"Shifted Dataset Mean: {shifted_mean:.6f} eV")
+    logger.info(f"{logprefix}Shifted Dataset Mean: {shifted_mean:.6f} eV")
 
     jvalslist = [j for data in datalist for j in data.y_exchange.view(-1).tolist()]
-    # print('javalslist: ', jvalslist)
+    
     jvals = torch.tensor(jvalslist, dtype=torch.float64)
     meanj = jvals.mean()
-    print(f"Shifted Dataset Mean Exchange J: {meanj:.6f} meV")
+    logger.info(f"{logprefix}Shifted Dataset Mean Exchange J: {meanj:.6f} meV")
 
     trsize = int(1.0 * len(datalist))
     vsize = int(0.0 * trsize)
@@ -61,9 +57,10 @@ def getdata(datasetpath, batch_size=32):
 
     trainlist, valist, testlist = random_split(datalist, [trsize, vsize, ttsize],
                                generator=generator)
-    # logger.info(f'{logprefix}Train Set: {len(trainlist)}')
-    # logger.info(f'{logprefix}Validation Set: {len(valist)}')
-    # logger.info(f'{logprefix}Test Set: {len(testlist)}')
+    
+    logger.info(f'{logprefix}Train Set: {len(trainlist)}')
+    logger.info(f'{logprefix}Validation Set: {len(valist)}')
+    logger.info(f'{logprefix}Test Set: {len(testlist)}')
 
     trainloader = DataLoader(trainlist, batch_size=batch_size, shuffle=True, num_workers=4,
                             pin_memory=True)
