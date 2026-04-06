@@ -22,11 +22,6 @@ class InteractionBlock(nn.Module):
 
         self_interacted1 = self.owninteraction1(nodes)
 
-        # print('nodes: ', nodes.shape)
-        # print('edgeidxs: ', edgeidxs.shape)
-        # print('edgeshifts: ', edgeshifts.shape)
-        # print('cell: ', cell.shape)
-
         convolved = self.convolution(self_interacted1, batch)
         self_interacted2 = self.owninteraction2(convolved)
 

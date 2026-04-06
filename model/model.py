@@ -8,7 +8,7 @@ from .outblock import OutputBlock
 from .exchange import ExchangeBlock
 
 
-def force(energy, pos):
+def calcforce(energy, pos):
     ones = torch.ones_like(energy)
 
     grads = torch.autograd.grad(outputs=energy, inputs=pos, grad_outputs=ones, create_graph=True,
@@ -52,7 +52,6 @@ class DSpinGNN(nn.Module):
 
         nodes = self.atomembeds(batch.z)
 
-        # print('z: ', z)
         interacted1 = self.interaction_block1(nodes, batch)
 
         # interacted2 = self.interaction_block2(interacted1, batch)
@@ -73,9 +72,6 @@ class DSpinGNN(nn.Module):
 
         # energyt = global_add_pool(output, batch.batch)
         energyt = torch.tensor(0.0, device=nodes.device)  # Placeholder for energy prediction
-
-        # print('energyt: ', energyt.shape)
-        # print('exchangej: ', exchangej.shape)
 
         return energyt, exchangej
     

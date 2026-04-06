@@ -1,6 +1,7 @@
 import subprocess
 import platform
 import os
+import sys
 import re
 import numpy as np
 from ase.io.espresso import write_espresso_in
@@ -14,92 +15,94 @@ class EspressoHubbard:
         self.phase = phase
         self.cores_per_job = cores_per_job
 
+        self.crI3 = CrI3()
+
         self.logprefix = "[EspressoHubbard] "
         self.logger = getLogger(__name__)
 
 
     # ---------------------------------------------------------------------------------------------
-    # TODO: Make this foolproof. Don't give atoms as input, and raise strict errors if parsing fails.
-    def parseatoms(self, content, atoms):
+    def parseatoms(self, content):
         # Parse the atomic positions and cell from the QE input file content. This is necessary 
         # because the final geometry may differ from the initial structure, and we want to ensure
         # our dataset reflects the final final state. We look for the last occurrence of 
         # 'CELL_PARAMETERS' and 'ATOMIC_POSITIONS' to get the final geometry. We also handle 
         # different units (angstrom, bohr, crystal, alat) that QE might use in its output.
 
-        atomsout = atoms.copy()
+        # atoms = atoms.copy()
+        atoms = self.crI3.batoms.copy()
         
-        try:
-            # A. Parse Final Cell (if CELL_PARAMETERS is present in the output)
-            cell_idx = content.rfind('CELL_PARAMETERS')
-            if cell_idx != -1:
-                block = content[cell_idx:].split('\n')
-                
-                # FIX: Handle units separated by spaces, with or without () or {}
-                header_parts = block[0].split()
-                if len(header_parts) > 1:
-                    unit = re.sub(r'[(){}]', '', header_parts[1]).strip().lower()
+        # A. Parse Final Cell (if CELL_PARAMETERS is present in the output)
+        cell_idx = content.rfind('CELL_PARAMETERS')
+        if cell_idx != -1:
+            block = content[cell_idx:].split('\n')
+            
+            # FIX: Handle units separated by spaces, with or without () or {}
+            header_parts = block[0].split()
+            if len(header_parts) > 1:
+                unit = re.sub(r'[(){}]', '', header_parts[1]).strip().lower()
+            else:
+                unit = 'angstrom'
+            
+            # Extract the 3x3 matrix lines
+            v1 = [float(x) for x in block[1].split()[:3]]
+            v2 = [float(x) for x in block[2].split()[:3]]
+            v3 = [float(x) for x in block[3].split()[:3]]
+            cell = np.array([v1, v2, v3])
+            
+            # Convert to Angstroms if needed
+            if unit == 'bohr':
+                cell *= 0.529177210903
+            elif unit == 'alat':
+                alat_match = re.search(r'celldm\(1\)=\s*([-.\d]+)', content)
+                if alat_match:
+                    cell *= float(alat_match.group(1)) * 0.529177210903
+            
+            atoms.set_cell(cell)
+        else:
+            self.logger.critical(f"{self.logprefix} No CELL_PARAMETERS found in output. Using initial cell from input.")
+            sys.exit(1)
+
+        # B. Parse Final Positions (if ATOMIC_POSITIONS is present)
+        pos_idx = content.rfind('ATOMIC_POSITIONS')
+        if pos_idx != -1:
+            block = content[pos_idx:].split('\n')
+            
+            # FIX: Handle units separated by spaces, with or without () or {}
+            header_parts = block[0].split()
+            if len(header_parts) > 1:
+                unit = re.sub(r'[(){}]', '', header_parts[1]).strip().lower()
+            else:
+                unit = 'crystal'
+            
+            positions = []
+            for line in block[1:]:
+                parts = line.split()
+                # An atom line has >=4 parts and starts with a chemical symbol
+                if len(parts) >= 4 and re.match(r'^[A-Za-z]+', parts[0]):
+                    positions.append([float(parts[1]), float(parts[2]), float(parts[3])])
                 else:
-                    unit = 'angstrom'
-                
-                # Extract the 3x3 matrix lines
-                v1 = [float(x) for x in block[1].split()[:3]]
-                v2 = [float(x) for x in block[2].split()[:3]]
-                v3 = [float(x) for x in block[3].split()[:3]]
-                cell = np.array([v1, v2, v3])
-                
-                # Convert to Angstroms if needed
-                if unit == 'bohr':
-                    cell *= 0.529177210903
+                    self.logger.critical(f"{self.logprefix} Unrecognized line in ATOMIC_POSITIONS block: '{line}'.")
+                    sys.exit(1)
+                    
+            # Only apply if we extracted the correct number of atoms
+            if len(positions) == len(atoms):
+                positions = np.array(positions)
+                if unit == 'angstrom':
+                    atoms.set_positions(positions)
+                elif unit == 'bohr':
+                    atoms.set_positions(positions * 0.529177210903)
+                elif unit == 'crystal':
+                    atoms.set_scaled_positions(positions)
                 elif unit == 'alat':
                     alat_match = re.search(r'celldm\(1\)=\s*([-.\d]+)', content)
                     if alat_match:
-                        cell *= float(alat_match.group(1)) * 0.529177210903
-                
-                atomsout.set_cell(cell)
+                        atoms.set_positions(positions * float(alat_match.group(1)) * 0.529177210903)
+        else:
+            self.logger.critical(f"{self.logprefix} No ATOMIC_POSITIONS found in output. Using initial positions from input.")
+            sys.exit(1)
 
-            # B. Parse Final Positions (if ATOMIC_POSITIONS is present)
-            pos_idx = content.rfind('ATOMIC_POSITIONS')
-            if pos_idx != -1:
-                block = content[pos_idx:].split('\n')
-                
-                # FIX: Handle units separated by spaces, with or without () or {}
-                header_parts = block[0].split()
-                if len(header_parts) > 1:
-                    unit = re.sub(r'[(){}]', '', header_parts[1]).strip().lower()
-                else:
-                    unit = 'crystal'
-                
-                positions = []
-                for line in block[1:]:
-                    parts = line.split()
-                    # An atom line has >=4 parts and starts with a chemical symbol
-                    if len(parts) >= 4 and re.match(r'^[A-Za-z]+', parts[0]):
-                        try:
-                            positions.append([float(parts[1]), float(parts[2]), float(parts[3])])
-                        except ValueError:
-                            break # End of atomic block
-                    else:
-                        break # End of atomic block
-                        
-                # Only apply if we extracted the correct number of atoms
-                if len(positions) == len(atomsout):
-                    positions = np.array(positions)
-                    if unit == 'angstrom':
-                        atomsout.set_positions(positions)
-                    elif unit == 'bohr':
-                        atomsout.set_positions(positions * 0.529177210903)
-                    elif unit == 'crystal':
-                        atomsout.set_scaled_positions(positions)
-                    elif unit == 'alat':
-                        alat_match = re.search(r'celldm\(1\)=\s*([-.\d]+)', content)
-                        if alat_match:
-                            atomsout.set_positions(positions * float(alat_match.group(1)) * 0.529177210903)
-                            
-        except Exception as e:
-            self.logger.fatal(f"{self.logprefix}Atomic position parsing failed ({e})")
-
-        return atomsout
+        return atoms
 
 
     # ---------------------------------------------------------------------------------------------

@@ -3,7 +3,7 @@ import time
 import torch
 import numpy as np
 import wandb
-from model import force
+from model import calcforce
 from .trainutils import savecheckpoint
 
 class Trainer:
@@ -35,7 +35,7 @@ class Trainer:
             self.optimizer.zero_grad()
             
             energy, exchange = self.model(batch)
-            # forces = force(energy, batch.pos)
+            # forces = calcforce(energy, batch.pos)
             forces = torch.tensor(0.0, device=energy.device)  # Placeholder for forces
             
             loss, losse, lossf, lossx = self.criterion(energy, forces, exchange, batch)
@@ -75,7 +75,7 @@ class Trainer:
                 batch.pos.requires_grad_(True)
                 
                 energy, exchange = self.model(batch)
-                # forces = force(energy, batch.pos)
+                # forces = calcforce(energy, batch.pos)
                 forces = torch.tensor(0.0, device=energy.device)  # Placeholder for forces
 
                 self.logger.info(f"Exchange predictions (SUM): {np.sum(np.abs(exchange.detach().cpu().numpy())):.4f}")
