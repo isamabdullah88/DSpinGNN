@@ -18,32 +18,29 @@ class RadialEmbedding(nn.Module):
         self.coeff = -0.5 / (width ** 2)
 
     def forward(self, dist):
-        # 1. Gaussian Smearing (The Embedding)
+        # Gaussian Smearing (The Embedding)
         # diff shape: [num_edges, num_basis]
         diff = dist.view(-1, 1) - self.offset.view(1, -1)
         rbf = torch.exp(self.coeff * torch.pow(diff, 2))
         
-        # 2. Cosine Envelope
+        # Cosine Envelope
         # Starts at 1, smoothly goes to 0 at the cutoff
         envelope = 0.5 * (torch.cos(dist * torch.pi / self.cutoff) + 1.0)
         
         # Force exact zero beyond cutoff just in case
         envelope = envelope * (dist < self.cutoff).float()
         
-        # 3. Multiply embedding by the envelope
+        # Multiply embedding by the envelope
         return rbf * envelope.view(-1, 1)
     
 
 class ExchangeBlock(nn.Module):
-    def __init__(self, l0dim, l1dim, l2dim):
+    def __init__(self, l0dim, l1dim, l2dim, numscalars=128, numbasis=64):
         super(ExchangeBlock, self).__init__()
 
         irrepsin = o3.Irreps(f"{l0dim}x0e + {l1dim}x1o + {l2dim}x2e")
-        # irrepsout = o3.Irreps(f"{l0dim}x0e")
-        numscalars = 128
         irrepsout = o3.Irreps(f"{numscalars}x0e")
 
-        # self.linear = o3.Linear(irrepsin, irrepsout)
         self.tp = o3.FullyConnectedTensorProduct(
             irreps_in1=irrepsin, 
             irreps_in2=irrepsin, 
@@ -52,7 +49,6 @@ class ExchangeBlock(nn.Module):
 
         self.normlayer = nn.LayerNorm(numscalars)
 
-        numbasis = 64
         self.rembedding = RadialEmbedding(cutoff=7.0, num_basis=numbasis)
 
         self.distfilter = nn.Sequential(
@@ -62,40 +58,20 @@ class ExchangeBlock(nn.Module):
         )
 
         self.mlp = nn.Sequential(
-            # nn.LayerNorm(indim),
             nn.Linear(numscalars, 512),
             nn.SiLU(),
-            # nn.LayerNorm(512),
-            # nn.Linear(512, 512),
-            # nn.SiLU(),
-            # nn.Linear(256, 128),
-            # nn.SiLU(),
-            # nn.Linear(128, 64),
-            # nn.SiLU(),
-            # nn.Linear(64, 32),
-            # nn.SiLU(),
             nn.Linear(512, 1)
         )
 
 
     def forward(self, nodes, batch):
-
-        # print('nodes: ', nodes.shape)
-        # print('cr_edge_index: ', batch.cr_edge_index.shape)
-        # print('cr_edge_shift: ', batch.cr_edge_shift.shape)
-
+        # Distance computation using edge indices and periodic boundary conditions
         src, dst = batch.cr_edge_index
 
-        # neighbors = nodes[src]
-
         graphidxs = batch.batch[src]
-        # print('graphidxs: ', graphidxs.shape)
-        # print('graphidxs: ', graphidxs)
         
         cell = batch.cell.view(-1, 3, 3)
-        
         bcell = cell[graphidxs]
-        # print('bcell: ', bcell.shape)
         
         edge_shift = batch.cr_edge_shift.to(bcell.dtype)
 
@@ -104,24 +80,19 @@ class ExchangeBlock(nn.Module):
         radvec = batch.pos[dst] - batch.pos[src] + tvec
 
         dist = radvec.norm(dim=1, keepdim=False).view(-1, 1)
-        
-        # l0feat_src = self.linear(nodes[src])
-        # l0feat_dst = self.linear(nodes[dst])
 
+        # Fully connected tensor product to mix features from source and destination nodes
         mixed = self.tp(nodes[src], nodes[dst])
 
+        # Normalize the mixed features. This is important to ensure that the scale of the features
+        # is consistent before applying the distance-based filter.
         mixednorm = self.normlayer(mixed)
-        # print('l0feat_src: ', l0feat_src.shape)
-        # print('l0feat_dst: ', l0feat_dst.shape)
-        # print('dist: ', dist.shape)
+
         distembedding = self.rembedding(dist)
         distfilter = self.distfilter(distembedding)
 
         regulated_feat = mixednorm * distfilter
-        # inx = torch.cat([mixednorm, distfilter], dim=1)
-        # print('inx: ', inx.shape)
 
         outx = self.mlp(regulated_feat)
-        # print('outx: ', outx.shape)
 
         return outx
