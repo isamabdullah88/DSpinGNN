@@ -15,10 +15,10 @@ def gen_instructions(irreps_in, irreps_edge, irreps_out):
         for j, (mul_edge, ir_edge) in enumerate(irreps_edge):
             for k, (mul_out, ir_out) in enumerate(irreps_out):
                 
-                # 1. Check Physics (Angular Momentum + Parity)
+                # Check Physics (Angular Momentum + Parity)
                 if ir_out in ir_in * ir_edge:
                     
-                    # 2. Check if "Depthwise" is possible
+                    # Check if "Depthwise" is possible
                     # 'uvu' requires the input channel count to match the output
                     if mul_in == mul_out:
                         # Valid Depthwise connection!
