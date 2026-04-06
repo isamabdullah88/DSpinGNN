@@ -58,15 +58,16 @@ class DataGenerator:
         if forces.any() > fthresh:
             self.logger.warning(f"{self.lprefix}Warning: Large forces detected for strain {stnvalue:.4f} (Rattle idx: {rattleidx}). Max force magnitude: {np.max(np.linalg.norm(forces, axis=1)):.4f} eV/Å. Skipping this sample.")
             return None, None
+        
+        edgeidxs, edgeshifts = self.cgraph.tensorgraph(self.rcut, atomsout)
 
         #  Parse TB2J outputs for this strain
         tb2jpath = os.path.join(wkdir, f"Strain_{stntype}_{stnvalue:.4f}_{rattleidx}", "tmp/TB2J_results/Multibinit", "exchange.xml")
         if not os.path.exists(tb2jpath):
             self.logger.warning(f"{self.lprefix}TB2J output file not found for strain {stnvalue:.4f} at {tb2jpath}. Skipping TB2J parsing...")
-
-        edgeidxs, edgeshifts = self.cgraph.tensorgraph(self.rcut, atomsout)
-        
-        cr_edges, exchangejs, cr_shifts, cr_edgedists = self.egraph.graph(tb2jpath, self.rcut, atomsout)
+            cr_edges, exchangejs, cr_shifts, cr_edgedists = None, None, None, None
+        else:
+            cr_edges, exchangejs, cr_shifts, cr_edgedists = self.egraph.graph(tb2jpath, self.rcut, atomsout)
 
         data = Data(
             z=z,
@@ -79,7 +80,8 @@ class DataGenerator:
             cr_edge_index=cr_edges,
             cr_edge_shift=cr_shifts,
             cr_edge_dist=cr_edgedists,
-            y_exchange=exchangejs
+            y_exchange=exchangejs,
+            exchange = torch.tensor([True if exchangejs is not None else False], dtype=torch.bool)
         )
 
         return data, atomsout
@@ -114,18 +116,44 @@ class DataGenerator:
 
 
 if __name__ == "__main__":
+    from pathlib import Path
     from logging import getLogger
     logger = getLogger(__name__)
 
     RCUT = 7.0    
-    datasetdir = "./DataSets/Exchange-Rattled/"
-    datasetpath = f"./DataSets/GNN/RattleGNN-Exchange-Strain_All-Rcut_{RCUT:.1f}.pth"
+    datasetdir = "./DataSets/MixedDataset/"
+    datasetpath = f"./DataSets/GNN/MixedDataset_All-Rcut_{RCUT:.1f}.pth"
 
-    stntypes = ['Uniaxial_X']
-    # strains = [[float(s) for s in np.linspace(-0.12, 0.12, 15) if -0.05 < s < 0.05]]
-    strains = [[float(s) for s in np.linspace(-0.15, 0.15, 21) if -0.04 < s < 0.05]]
-    # strains += [[float(s) for s in np.linspace(-0.15, 0.15, 21) if -0.05 < s < 0.05]]
-    print('strains: ', strains)
+    # stntypes =  ['P-Exchange-Biaxial', 'P-Exchange-Shear_XY', 'P-Exchange-Uniaxial_X',]
+    # stntypes += ['P-Rattle-Biaxial-2', 'P-Rattle-Shear_XY-2', 'P-Rattle-Uniaxial_X-2']
+    # stntypes += ['P-Rattle-Biaxial-4', 'P-Rattle-Shear_XY-4', 'P-Rattle-Uniaxial_X-4']
+    # stntypes += ['Rattle-Biaxial-2', 'Rattle-Shear_XY-2', 'Rattle-Uniaxial_X-2']
+    # stntypes += ['Rattle-Biaxial-4', 'Rattle-Shear_XY-4', 'Rattle-Uniaxial_X-4', ]
+    # stntypes += ['P-Rattle-Exchange-Uniaxial_X-4']
+
+    # dirlist = os.listdir(datasetdir)
+    dirpath = Path(datasetdir)
+    dirlist = [d.name for d in dirpath.iterdir() if not d.name.startswith(".") and d.is_dir()]
+    logger.info(f"Found directories: {dirlist}")
+    stntypes = []
+    strains = []
+    numsamples = 0
+    for dirname in dirlist:
+        stntypes.append(dirname)
+
+        stnvalues = []
+        stndir = Path(os.path.join(datasetdir, dirname, "FM"))
+        stnlist = [d.name for d in stndir.iterdir() if not d.name.startswith(".") and d.is_dir()]
+        for stn in stnlist:
+            stnvalues.append(float(stn.split('_')[-2]))
+            numsamples += 1
+
+        strains.append(stnvalues)
+
+    logger.info(f"Number of strain types: {len(stntypes)}")
+    logger.info(f"Total samples: {numsamples}")
+    logger.info(f"Strains: {strains[0]}")
+    
     rattleidxs = list(range(10))
     datagen = DataGenerator(RCUT, stntypes=stntypes, strains=strains, phase='FM')
 
