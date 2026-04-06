@@ -1,1 +1,1 @@
-from .model import DSpinGNN, force
+from .model import DSpinGNN, calcforce
