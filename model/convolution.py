@@ -3,7 +3,6 @@ import torch
 import torch.nn as nn
 import e3nn.math as emath
 from e3nn import o3
-from torch_geometric.nn import radius_graph
 from torch_geometric.utils import scatter
 
 
@@ -60,9 +59,8 @@ class Radial(nn.Module):
 
         
 class Convolution(nn.Module):
-    def __init__(self, l0dim, l1dim, l2dim, rcut, numbasis=20, mps=True):
+    def __init__(self, l0dim, l1dim, l2dim, rcut, numbasis=20):
         super(Convolution, self).__init__()
-        self.mps = mps
 
         self.avg_neighbors = 50.0
         

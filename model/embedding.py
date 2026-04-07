@@ -3,7 +3,7 @@ import torch.nn as nn
 from e3nn import o3
 
 class AtomEmbedding(nn.Module):
-    def __init__(self, embeddim: int, l1dim: int, l2dim: int, numembeds: int = 100):
+    def __init__(self, embeddim: int, l1dim: int, l2dim: int, numembeds: int = 118):
         super(AtomEmbedding, self).__init__()
         
         self.embedding = nn.Embedding(numembeds, embeddim)
@@ -15,7 +15,6 @@ class AtomEmbedding(nn.Module):
 
     def forward(self, z: torch.Tensor) -> torch.Tensor:
         embeds = self.embedding(z)
-        # print('embeds: ', embeds.shape)
 
         linear = self.linear(embeds)
         

@@ -7,7 +7,7 @@ import numpy as np
 from ase.io.espresso import write_espresso_in
 from ase.calculators.singlepoint import SinglePointCalculator
 
-from .crI3 import CrI3
+from .CrI3 import CrI3
 from logging import getLogger
 
 class EspressoHubbard:
