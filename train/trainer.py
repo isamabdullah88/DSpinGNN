@@ -35,8 +35,7 @@ class Trainer:
             self.optimizer.zero_grad()
             
             energy, exchange = self.model(batch)
-            # forces = calcforce(energy, batch.pos)
-            forces = torch.tensor(0.0, device=energy.device)  # Placeholder for forces
+            forces = calcforce(energy, batch.pos)
             
             loss, losse, lossf, lossx = self.criterion(energy, forces, exchange, batch)
             loss.backward()
@@ -44,9 +43,9 @@ class Trainer:
             self.optimizer.step()
             
             wandb.log({
-                # "Train/train_loss": loss.item(),
-                # "Train/train_loss_energy": losse.item(),
-                # "Train/train_loss_forces": lossf.item(),
+                "Train/train_loss": loss.item(),
+                "Train/train_loss_energy": losse.item(),
+                "Train/train_loss_forces": lossf.item(),
                 "Train/train_loss_exchange": lossx.item(),
                 "iter": self.train_size * epoch + k,
                 "Train/learning_rate": self.optimizer.param_groups[0]['lr']
@@ -69,14 +68,14 @@ class Trainer:
         numedges1 = 0
         numedges2 = 0
         
+        # TODO: Clean all this code up please!
         with torch.enable_grad(): 
             for batch in self.val_loader:
                 batch = batch.to(self.device)
                 batch.pos.requires_grad_(True)
                 
                 energy, exchange = self.model(batch)
-                # forces = calcforce(energy, batch.pos)
-                forces = torch.tensor(0.0, device=energy.device)  # Placeholder for forces
+                forces = calcforce(energy, batch.pos)
 
                 self.logger.info(f"Exchange predictions (SUM): {np.sum(np.abs(exchange.detach().cpu().numpy())):.4f}")
                 self.logger.info(f"Exchange targets (SUM): {np.sum(np.abs(batch.y_exchange.detach().cpu().numpy())):.4f}")
@@ -97,8 +96,8 @@ class Trainer:
 
                 valloss, vallosse, vallossf, vallossx = self.criterion(energy, forces, exchange, batch)
                 
-                # e_err = torch.abs(energy.detach().view(-1) - batch.y_energy.view(-1)).sum().item()
-                # f_err = torch.abs(forces.detach() - batch.y_forces).sum().item()
+                e_err = torch.abs(energy.detach().view(-1) - batch.y_energy.view(-1)).sum().item()
+                f_err = torch.abs(forces.detach() - batch.y_forces).sum().item()
 
                 j1mask = batch.cr_edge_dist < 4.5
                 j2mask = batch.cr_edge_dist >= 4.5
@@ -114,11 +113,11 @@ class Trainer:
                 edges = batch.cr_edge_index.shape[1]
                 
                 total_valloss += valloss.item() * graphs_in_batch
-                # total_vallosse += vallosse.item() * graphs_in_batch
-                # total_vallossf += vallossf.item() * graphs_in_batch
+                total_vallosse += vallosse.item() * graphs_in_batch
+                total_vallossf += vallossf.item() * graphs_in_batch
                 total_vallossx += vallossx.item() * graphs_in_batch
-                # total_mae_energy += e_err
-                # total_mae_force += f_err
+                total_mae_energy += e_err
+                total_mae_force += f_err
                 total_mae_exchange += xerr
 
                 maex1 += xerr1
@@ -132,8 +131,8 @@ class Trainer:
 
 
         avg_valloss = total_valloss / num_val_graphs
-        # avg_vallosse = total_vallosse / num_val_graphs
-        # avg_vallossf = total_vallossf / num_val_graphs
+        avg_vallosse = total_vallosse / num_val_graphs
+        avg_vallossf = total_vallossf / num_val_graphs
         avg_vallossx = total_vallossx / num_val_graphs
 
         mae_energy_per_atom = total_mae_energy / num_val_atoms
@@ -143,9 +142,9 @@ class Trainer:
         maex2_peredge = maex2 / numedges2 if numedges2 > 0 else 0
 
         self.logger.info("[TRAIN] RESULTS (Validation Set)")
-        # self.logger.info(f"[TRAIN] Val Loss (MSE):     {avg_valloss:.5f}")
-        # self.logger.info(f"[TRAIN] Val Energy (MAE):   {mae_energy_per_atom:.5f} eV/atom")
-        # self.logger.info(f"[TRAIN] Val Forces (MAE):   {mae_force_per_comp:.5f} eV/A")
+        self.logger.info(f"[TRAIN] Val Loss (MSE):     {avg_valloss:.5f}")
+        self.logger.info(f"[TRAIN] Val Energy (MAE):   {mae_energy_per_atom:.5f} eV/atom")
+        self.logger.info(f"[TRAIN] Val Forces (MAE):   {mae_force_per_comp:.5f} eV/A")
         self.logger.info(f"[TRAIN] Val Exchange (MAE): {maex_peredge:.5f}")
         self.logger.info(f"[TRAIN] Val Exchange (MAE) - Short Range: {maex1_peredge:.5f}")
         self.logger.info(f"[TRAIN] Val Exchange (MAE) - Long Range: {maex2_peredge:.5f}")
@@ -154,11 +153,11 @@ class Trainer:
             "Test/MAE-Exchange": maex_peredge,
             "Test/MAE-Exchange-Short": maex1_peredge,
             "Test/MAE-Exchange-Long": maex2_peredge,
-            # "Test/MAE-Energy": mae_energy_per_atom,
-            # "Test/MAE-Force": mae_force_per_comp,
-            # "Test/Validation-Loss": avg_valloss,
-            # "Test/Validation-Loss-Energy": avg_vallosse,
-            # "Test/Validation-Loss-Forces": avg_vallossf,
+            "Test/MAE-Energy": mae_energy_per_atom,
+            "Test/MAE-Force": mae_force_per_comp,
+            "Test/Validation-Loss": avg_valloss,
+            "Test/Validation-Loss-Energy": avg_vallosse,
+            "Test/Validation-Loss-Forces": avg_vallossf,
             "Test/Validation-Loss-Exchange": avg_vallossx,
             "epoch": epoch
         })
@@ -186,9 +185,9 @@ class Trainer:
             if (epoch + 1) % 1 == 0:
                 val_loss, val_mae_force = self.validate_epoch(epoch)
                 
-                # if self.scheduler is not None:
+                if self.scheduler is not None:
                     # Step based on Force MAE since forces are the hardest to fit
-                    # self.scheduler.step(val_mae_force)
+                    self.scheduler.step(val_mae_force)
                 
             line = f"Epoch [{epoch+1}/{self.config.epochs}], Loss: {train_loss:.4f}, Time: {(time.time()-stime): .01f}\n" 
             self.logger.info(line)

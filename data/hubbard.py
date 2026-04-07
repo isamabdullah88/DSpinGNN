@@ -7,6 +7,7 @@ import numpy as np
 from ase.io.espresso import write_espresso_in
 from ase.calculators.singlepoint import SinglePointCalculator
 
+from .crI3 import CrI3
 from logging import getLogger
 
 class EspressoHubbard:
@@ -81,9 +82,9 @@ class EspressoHubbard:
                 # An atom line has >=4 parts and starts with a chemical symbol
                 if len(parts) >= 4 and re.match(r'^[A-Za-z]+', parts[0]):
                     positions.append([float(parts[1]), float(parts[2]), float(parts[3])])
-                else:
-                    self.logger.critical(f"{self.logprefix} Unrecognized line in ATOMIC_POSITIONS block: '{line}'.")
-                    sys.exit(1)
+                # else:
+                    # self.logger.critical(f"{self.logprefix} Unrecognized line in ATOMIC_POSITIONS block: '{line}'.")
+                    # sys.exit(1)
                     
             # Only apply if we extracted the correct number of atoms
             if len(positions) == len(atoms):
@@ -106,7 +107,7 @@ class EspressoHubbard:
 
 
     # ---------------------------------------------------------------------------------------------
-    def parse(self, pwipath, pwopath, atoms):
+    def parse(self, pwipath, pwopath):
 
         if not os.path.exists(pwipath):
             raise FileNotFoundError(f"Input file not found: {pwipath}")
@@ -118,7 +119,7 @@ class EspressoHubbard:
             content = f.read()
 
             # Parse geometry
-            atomsout = self.parseatoms(content, atoms)
+            atomsout = self.parseatoms(content)
 
         with open(pwopath, 'r') as f:
             content = f.read()
