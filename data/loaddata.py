@@ -23,7 +23,10 @@ def getdata(datasetpath, batch_size=32):
     all_energies = torch.tensor([data.y_energy.item() for data in datalist], dtype=torch.float64)
     mean_energy = all_energies.mean()
 
-    jvalslist = [j for data in datalist for j in data.y_exchange.view(-1).tolist()]
+    jvalslist = []
+    for data in datalist:
+        if data.exchange:
+            jvalslist += data.y_exchange.view(-1).tolist()
     # print('javalslist: ', jvalslist)
     jvals = torch.tensor(jvalslist, dtype=torch.float64)
     mean_jval = jvals.mean()
@@ -36,21 +39,26 @@ def getdata(datasetpath, batch_size=32):
     for data in datalist:
         shifted_val = data.y_energy.to(torch.float64) - mean_energy
         data.y_energy = shifted_val.to(torch.float32)
-        data.y_exchange = data.y_exchange.to(torch.float64) - mean_jval
-        data.y_exchange = data.y_exchange.to(torch.float32)
+
+        if data.exchange:
+            data.y_exchange = data.y_exchange.to(torch.float64) - mean_jval
+            data.y_exchange = data.y_exchange.to(torch.float32)
 
     # 3. Verify the shift worked (the new mean should be mathematically zero)
     shifted_mean = torch.tensor([data.y_energy.item() for data in datalist]).mean()
     logger.info(f"{logprefix}Shifted Dataset Mean: {shifted_mean:.6f} eV")
 
-    jvalslist = [j for data in datalist for j in data.y_exchange.view(-1).tolist()]
+    jvalslist = []
+    for data in datalist:
+        if data.exchange:
+            jvalslist += data.y_exchange.view(-1).tolist()
     
     jvals = torch.tensor(jvalslist, dtype=torch.float64)
     meanj = jvals.mean()
     logger.info(f"{logprefix}Shifted Dataset Mean Exchange J: {meanj:.6f} meV")
 
-    trsize = int(1.0 * len(datalist))
-    vsize = int(0.0 * trsize)
+    trsize = int(0.9 * len(datalist))
+    vsize = int(0.1 * trsize)
     ttsize = len(datalist) - trsize - vsize
 
     generator = torch.Generator().manual_seed(42)
@@ -72,19 +80,20 @@ def getdata(datasetpath, batch_size=32):
     return trainloader, valloader, testloader
 if __name__ == "__main__":
     
-    trainloader, valloader, testloader = getdata("./DataSets/GNN/RattleGNN-Exchange-Strain_All-Rcut_7.0.pth", 1)
+    trainloader, valloader, testloader = getdata("./DataSets/GNN/MixedDataset_All-Rcut_7.0.pth", 32)
 
     forces = []
-    for k, batch in enumerate(trainloader):
-        print('y_forces: ', torch.norm(batch.y_forces, dim=1).shape)
-        forces.append(torch.norm(batch.y_forces, dim=1))
+    for k, batch in enumerate(valloader):
+        print('batch y_exchange: ', batch.y_exchange.shape)
+        print('batch exchange: ', batch.exchange.shape)
+        # forces.append(torch.norm(batch.y_forces, dim=1))
 
-    forces = torch.stack(forces)
-    print('All forces shape: ', forces.shape)
-    import matplotlib.pyplot as plt
-    # plt.hist(forces.cpu().numpy().flatten(), bins=100)
-    plt.plot(forces.cpu().numpy().flatten(), marker='o', linestyle='', markersize=2)
-    plt.title('Distribution of Force Magnitudes in Training Set')
-    plt.xlabel('Sample Index')
-    plt.ylabel('Force Magnitude')
-    plt.show()
+    # forces = torch.stack(forces)
+    # print('All forces shape: ', forces.shape)
+    # import matplotlib.pyplot as plt
+    # # plt.hist(forces.cpu().numpy().flatten(), bins=100)
+    # plt.plot(forces.cpu().numpy().flatten(), marker='o', linestyle='', markersize=2)
+    # plt.title('Distribution of Force Magnitudes in Training Set')
+    # plt.xlabel('Sample Index')
+    # plt.ylabel('Force Magnitude')
+    # plt.show()
