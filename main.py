@@ -71,7 +71,7 @@ def main(args):
     trainer = Trainer(
         model=model,
         train_loader=trainloader,
-        val_loader=trainloader,
+        val_loader=valloader,
         optimizer=optimizer,
         criterion=criterion,
         device=device,
