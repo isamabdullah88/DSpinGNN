@@ -5,7 +5,7 @@ from .convolution import Convolution
 from .gate import NonLinearGate
 
 class InteractionBlock(nn.Module):
-    def __init__(self, l0dim, l1dim, l2dim, rcut, mps=False):
+    def __init__(self, l0dim, l1dim, l2dim, rcut):
         super(InteractionBlock, self).__init__()
 
         # self-interaction
@@ -14,7 +14,7 @@ class InteractionBlock(nn.Module):
 
         self.owninteraction2 = o3.Linear(in_irreps, in_irreps)
 
-        self.convolution = Convolution(l0dim, l1dim, l2dim, rcut, mps=mps)
+        self.convolution = Convolution(l0dim, l1dim, l2dim, rcut)
 
         self.gate = NonLinearGate(l0dim, l1dim, l2dim)
 
