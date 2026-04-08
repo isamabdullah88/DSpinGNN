@@ -31,7 +31,7 @@ class MultiTaskLoss:
         # SAFEGUARD: Check if this batch actually contains any J data
         if xpredp.numel() > 0:
             # Using standard MSE for this experiment
-            lossx = F.mse_loss(xpredp.view(-1), yexchangep.view(-1))
+            lossx = F.l1_loss(xpredp.view(-1), yexchangep.view(-1))
         else:
             # THE FIX: Keep lossx attached to the graph, but force gradients to 0.0
             lossx = xpred.sum() * 0.0
