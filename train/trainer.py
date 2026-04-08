@@ -83,23 +83,6 @@ class Trainer:
                 energy, exchange = self.model(batch)
                 forces = calcforce(energy, batch.pos)
 
-                # self.logger.info(f"Exchange predictions (SUM): {np.sum(np.abs(exchange.detach().cpu().numpy())):.4f}")
-                # self.logger.info(f"Exchange targets (SUM): {np.sum(np.abs(batch.y_exchange.detach().cpu().numpy())):.4f}")
-
-                # shortdist = batch.cr_edge_dist[batch.cr_edge_dist < 4.5][0]
-                # shortexchange = exchange[batch.cr_edge_dist < 4.5][0]
-                # shorttarget = batch.y_exchange[batch.cr_edge_dist < 4.5][0]
-                # self.logger.info(f"Cr-Cr Short edge distances: {shortdist.detach().cpu().numpy()}")
-                # self.logger.info(f"Exchange predictions: {shortexchange.detach().cpu().numpy()}")
-                # self.logger.info(f"Exchange targets: {shorttarget.detach().cpu().numpy()}")
-
-                # longdist = batch.cr_edge_dist[batch.cr_edge_dist >= 4.5][0]
-                # longexchange = exchange[batch.cr_edge_dist >= 4.5][0]
-                # longtarget = batch.y_exchange[batch.cr_edge_dist >= 4.5][0]
-                # self.logger.info(f"Cr-Cr Long edge distances: {longdist.detach().cpu().numpy()}")
-                # self.logger.info(f"Exchange predictions: {longexchange.detach().cpu().numpy()}")
-                # self.logger.info(f"Exchange targets: {longtarget.detach().cpu().numpy()}")
-
                 loss, losse, lossf, lossx = self.criterion(energy, forces, exchange, batch)
                 
                 erre = torch.abs(energy.detach().view(-1) - batch.y_energy.view(-1)).sum()
