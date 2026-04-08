@@ -16,6 +16,7 @@ def getdata(datasetpath, batch_size=32):
 
     datalist = torch.load(datasetpath)
 
+    """
         # Assuming 'dataset' is your list of Data() objects
     logger.info(f"{logprefix}Pre-processing dataset to eliminate the float32 precision trap...")
 
@@ -56,7 +57,8 @@ def getdata(datasetpath, batch_size=32):
     jvals = torch.tensor(jvalslist, dtype=torch.float64)
     meanj = jvals.mean()
     logger.info(f"{logprefix}Shifted Dataset Mean Exchange J: {meanj:.6f} meV")
-
+    """
+    
     trsize = int(0.9 * len(datalist))
     vsize = int(0.1 * trsize)
     ttsize = len(datalist) - trsize - vsize
