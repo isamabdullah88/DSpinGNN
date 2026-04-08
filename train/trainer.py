@@ -162,7 +162,7 @@ class Trainer:
             "epoch": epoch
         })
         
-        return avg_valloss, mae_force_per_comp
+        return avg_valloss, mae_force_per_comp, avg_vallossx
 
     def save_models(self, epoch, loss):
         checkpoint_path = os.path.join(self.checkpoints_dir, f"Epoch-{epoch:04d}.pt")
@@ -183,11 +183,11 @@ class Trainer:
             train_loss = self.train_epoch(epoch)
             
             if (epoch + 1) % 1 == 0:
-                val_loss, val_mae_force = self.validate_epoch(epoch)
+                val_loss, val_mae_force, val_maex = self.validate_epoch(epoch)
                 
-                # if self.scheduler is not None:
+                if self.scheduler is not None:
                     # Step based on Force MAE since forces are the hardest to fit
-                    # self.scheduler.step(val_mae_force)
+                    self.scheduler.step(val_maex)
                 
             line = f"Epoch [{epoch+1}/{self.config.epochs}], Loss: {train_loss:.4f}, Time: {(time.time()-stime): .01f}\n" 
             self.logger.info(line)
