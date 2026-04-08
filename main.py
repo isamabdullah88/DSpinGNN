@@ -6,7 +6,7 @@ import wandb
 
 from data import getdata
 from model import DSpinGNN
-from train import load_checkpoint, count_parameters, MultiTaskLoss, Trainer
+from train import load_checkpoint, count_parameters, MultiTaskLoss, Trainer, initialize_shift_scale
 from logger import getlogger
 
 def setup_wandb(args, dataset_size):
@@ -51,8 +51,8 @@ def main(args):
     else:
         logger.info("Initialized new DSpinGNN model.")
         # OPTIONAL: Run your Least Squares initialization here!
-        # z_map = {24: 0, 53: 1} # Cr: 0, I: 1
-        # model = initialize_shift_scale(model, trainloader, z_map, device)
+        z_map = {24: 0, 53: 1} # Cr: 0, I: 1
+        model = initialize_shift_scale(model, trainloader, z_map, device)
 
     model = model.to(device)
     logger.info(f"Total Parameters: {count_parameters(model):,}")
