@@ -29,18 +29,19 @@ class MultiTaskLoss:
         credges = batch.cr_edge_index[0]
         graphidx = batch.batch[credges]
         
-        exchange_mask = batch.exchange[graphidx].view(-1)
-        xpredp = xpred[exchange_mask]
-        yexchangep = batch.y_exchange[exchange_mask]
-        distsp = batch.cr_edge_dist[exchange_mask]
+        # exchange_mask = batch.exchange[graphidx].view(-1)
+        # xpredp = xpred[exchange_mask]
+        # yexchangep = batch.y_exchange[exchange_mask]
+        # distsp = batch.cr_edge_dist[exchange_mask]
 
         # SAFEGUARD: Check if this batch actually contains any J data
-        if xpredp.numel() > 0:
+        # if xpredp.numel() > 0:
             # Call our custom weighted Huber loss
-            lossx = self.exchangeloss(xpredp, yexchangep, distsp)
-        else:
+        #     lossx = self.exchangeloss(xpredp, yexchangep, distsp)
+        # else:
             # Prevent the NaN explosion by creating a detached zero tensor
-            lossx = torch.tensor(0.0, device=xpred.device, requires_grad=True)
+            # lossx = torch.tensor(0.0, device=xpred.device, requires_grad=True)
+        lossx = F.l1_loss(xpred, batch.y_exchange)
         
         loss_tot = (self.we * losse) + (self.wf * lossf) + (self.wx * lossx)
         
