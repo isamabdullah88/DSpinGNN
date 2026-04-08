@@ -23,7 +23,6 @@ def setup_wandb(args, dataset_size):
     )
 
 def main(args):
-    logger = getlogger()
     logger.info(f"Hyperparameters: LR={args.lr}, Batch={args.batch_size}, Epochs={args.epochs}")
 
     # 1. Device Setup
@@ -41,7 +40,7 @@ def main(args):
     setup_wandb(args, len(trainloader.dataset))
 
     # 4. Model Initialization
-    model = DSpinGNN(mps=args.mps)
+    model = DSpinGNN()
     model = model.to(device)
     
     if args.finetune:
@@ -87,8 +86,12 @@ if __name__ == "__main__":
     parser.add_argument('--datasetpath', default="./DataSets/GNN/RattleGNN.pth", type=str)
     parser.add_argument('--project', default="DSpinGNN", type=str)
     parser.add_argument('--runname', default="Run_01_1k_Samples", type=str)
-    parser.add_argument('--mps', default=False, type=bool)
-    parser.add_argument('--finetune', default=False, type=bool)
+
+    # CORRECTED BOOLEAN FLAGS
+    # If --mps is passed in the terminal, it becomes True. If omitted, it defaults to False.
+    parser.add_argument('--mps', action='store_true', help='Enable MPS (Metal Performance Shaders)')
+    parser.add_argument('--finetune', action='store_true', help='Enable fine-tuning mode')
+
     parser.add_argument('--ft_runname', default="Run_00_FullData", type=str)
     parser.add_argument('--batch_size', default=32, type=int)
     parser.add_argument('--lr', default=1e-2, type=float)
@@ -97,4 +100,7 @@ if __name__ == "__main__":
     parser.add_argument('--wb_notes', default="", type=str)
     
     args = parser.parse_args()
+
+    logger = getlogger()
+    
     main(args)
