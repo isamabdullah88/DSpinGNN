@@ -80,19 +80,19 @@ class Trainer:
                 self.logger.info(f"Exchange predictions (SUM): {np.sum(np.abs(exchange.detach().cpu().numpy())):.4f}")
                 self.logger.info(f"Exchange targets (SUM): {np.sum(np.abs(batch.y_exchange.detach().cpu().numpy())):.4f}")
 
-                shortdist = batch.cr_edge_dist[batch.cr_edge_dist < 4.5][0]
-                shortexchange = exchange[batch.cr_edge_dist < 4.5][0]
-                shorttarget = batch.y_exchange[batch.cr_edge_dist < 4.5][0]
-                self.logger.info(f"Cr-Cr Short edge distances: {shortdist.detach().cpu().numpy()}")
-                self.logger.info(f"Exchange predictions: {shortexchange.detach().cpu().numpy()}")
-                self.logger.info(f"Exchange targets: {shorttarget.detach().cpu().numpy()}")
+                # shortdist = batch.cr_edge_dist[batch.cr_edge_dist < 4.5][0]
+                # shortexchange = exchange[batch.cr_edge_dist < 4.5][0]
+                # shorttarget = batch.y_exchange[batch.cr_edge_dist < 4.5][0]
+                # self.logger.info(f"Cr-Cr Short edge distances: {shortdist.detach().cpu().numpy()}")
+                # self.logger.info(f"Exchange predictions: {shortexchange.detach().cpu().numpy()}")
+                # self.logger.info(f"Exchange targets: {shorttarget.detach().cpu().numpy()}")
 
-                longdist = batch.cr_edge_dist[batch.cr_edge_dist >= 4.5][0]
-                longexchange = exchange[batch.cr_edge_dist >= 4.5][0]
-                longtarget = batch.y_exchange[batch.cr_edge_dist >= 4.5][0]
-                self.logger.info(f"Cr-Cr Long edge distances: {longdist.detach().cpu().numpy()}")
-                self.logger.info(f"Exchange predictions: {longexchange.detach().cpu().numpy()}")
-                self.logger.info(f"Exchange targets: {longtarget.detach().cpu().numpy()}")
+                # longdist = batch.cr_edge_dist[batch.cr_edge_dist >= 4.5][0]
+                # longexchange = exchange[batch.cr_edge_dist >= 4.5][0]
+                # longtarget = batch.y_exchange[batch.cr_edge_dist >= 4.5][0]
+                # self.logger.info(f"Cr-Cr Long edge distances: {longdist.detach().cpu().numpy()}")
+                # self.logger.info(f"Exchange predictions: {longexchange.detach().cpu().numpy()}")
+                # self.logger.info(f"Exchange targets: {longtarget.detach().cpu().numpy()}")
 
                 valloss, vallosse, vallossf, vallossx = self.criterion(energy, forces, exchange, batch)
                 
@@ -185,9 +185,9 @@ class Trainer:
             if (epoch + 1) % 1 == 0:
                 val_loss, val_mae_force = self.validate_epoch(epoch)
                 
-                if self.scheduler is not None:
+                # if self.scheduler is not None:
                     # Step based on Force MAE since forces are the hardest to fit
-                    self.scheduler.step(val_mae_force)
+                    # self.scheduler.step(val_mae_force)
                 
             line = f"Epoch [{epoch+1}/{self.config.epochs}], Loss: {train_loss:.4f}, Time: {(time.time()-stime): .01f}\n" 
             self.logger.info(line)
