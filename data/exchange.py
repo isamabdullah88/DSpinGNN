@@ -1,7 +1,7 @@
 import torch
 import xml.etree.ElementTree as ET
 
-from .crI3 import CrI3
+from .CrI3 import CrI3
 
 class ExchangeGraph:
     def __init__(self):

@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 
-from .crI3 import CrI3
+from .CrI3 import CrI3
 
 class CrystalGraphTensor:
     def __init__(self):
