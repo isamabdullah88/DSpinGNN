@@ -10,15 +10,14 @@ class OutputBlock(nn.Module):
         
         self.linear = o3.Linear(input_irreps, o3.Irreps("1x0e"))
 
-        # self.scale = nn.Parameter(torch.tensor(1.0))
-        # self.shift = nn.Parameter(torch.tensor(torch.zeros(num_species)))
+        self.scale = nn.Parameter(torch.tensor(1.0))
+        self.shift = nn.Parameter(torch.tensor(torch.zeros(num_species)))
 
     def forward(self, nodes: torch.Tensor, atom: torch.Tensor) -> torch.Tensor:
         rawe = self.linear(nodes)
 
-        # baseline = self.shift[atom].view(-1, 1)
+        baseline = self.shift[atom].view(-1, 1)
 
-        # atome = (rawe * self.scale) + baseline
+        atome = (rawe * self.scale) + baseline
 
-        # return atome.squeeze()
-        return rawe.squeeze()
+        return atome.squeeze()
