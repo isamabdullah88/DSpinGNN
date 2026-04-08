@@ -185,14 +185,14 @@ class Trainer:
             if (epoch + 1) % 1 == 0:
                 val_loss, val_mae_force, val_maex = self.validate_epoch(epoch)
                 
-                if self.scheduler is not None:
+                # if self.scheduler is not None:
                     # Step based on Force MAE since forces are the hardest to fit
-                    self.scheduler.step(val_maex)
+                    # self.scheduler.step(val_maex)
                 
             line = f"Epoch [{epoch+1}/{self.config.epochs}], Loss: {train_loss:.4f}, Time: {(time.time()-stime): .01f}\n" 
             self.logger.info(line)
             
-            if epoch % 100 == 0:
+            if epoch % 10 == 0:
                 self.save_models(epoch, train_loss)
                 
         wandb.finish()
