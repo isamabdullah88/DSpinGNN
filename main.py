@@ -51,7 +51,9 @@ def main(args):
     else:
         logger.info("Initialized new DSpinGNN model.")
         # OPTIONAL: Run your Least Squares initialization here!
-        z_map = {24: 0, 53: 1} # Cr: 0, I: 1
+        # z_map = {24: 0, 53: 1} # Cr: 0, I: 1
+        # Keep this exactly as it was!
+        z_map = {24: 0, 53: 1} 
         model = initialize_shift_scale(model, trainloader, z_map, device)
 
     model = model.to(device)
