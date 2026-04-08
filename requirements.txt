@@ -1,8 +1,7 @@
+torch_geometric
 scikit-learn
 scipy
 tensorboard
-torch
-torch-geometric
 torchsummary
-torchvision
-wandb
+ase
+e3nn
