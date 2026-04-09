@@ -18,57 +18,54 @@ def setup_wandb(args, dataset_size):
         entity="isamabdullah88-lahore-university-of-management-sciences",
         project=args.project,
         name=args.runname,
-        config=vars(args), # Auto-logs all argparse arguments
+        config=vars(args),
         notes=args.wb_notes
     )
 
 def main(args):
     logger.info(f"Hyperparameters: LR={args.lr}, Batch={args.batch_size}, Epochs={args.epochs}")
 
-    # 1. Device Setup
+    # Device
     if args.mps:
         device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
     else:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     logger.info(f"Using device: {device}")
 
-    # 2. Data Loading
+    # Data Loading
     trainloader, valloader, _ = getdata(args.datasetpath, batch_size=args.batch_size)
     logger.info(f"Training samples: {len(trainloader.dataset)}, Validation samples: {len(valloader.dataset)}")
 
-    # 3. Weights & Biases
+    # Setup wandb
     setup_wandb(args, len(trainloader.dataset))
 
-    # 4. Model Initialization
+    # Model Construction
     model = DSpinGNN()
     model = model.to(device)
     
     if args.finetune:
         checkpoint_path = os.path.join("./checkpoints", "latest-model.pt")
-        # Pass the instantiated model into our new generic loader
         model, _, start_epoch, _ = load_checkpoint(model, checkpoint_path, device)
         logger.info(f"Loaded model from {checkpoint_path} starting at epoch {start_epoch}.")
     else:
         logger.info("Initialized new DSpinGNN model.")
-        # OPTIONAL: Run your Least Squares initialization here!
-        # z_map = {24: 0, 53: 1} # Cr: 0, I: 1
-        # Keep this exactly as it was!
         z_map = {24: 0, 53: 1} 
         model = initialize_shift_scale(model, trainloader, z_map, device)
+        logger.info("Initialized shift and scale parameters based on training data.")
 
     model = model.to(device)
     logger.info(f"Total Parameters: {count_parameters(model):,}")
 
-    # 5. Optimizer & Loss
+    # Optimizer & Loss
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
-    # Define the Scheduler
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode='min', factor=0.5, patience=20, min_lr=1e-6, verbose=True
     )
 
+    # Loss function with specified weights for each task
     criterion = MultiTaskLoss(wenergy=1.0, wforce=100.0, wexchange=1.0)
 
-    # 6. Initialize Trainer & Run
+    # Train
     trainer = Trainer(
         model=model,
         train_loader=trainloader,
@@ -89,8 +86,6 @@ if __name__ == "__main__":
     parser.add_argument('--project', default="DSpinGNN", type=str)
     parser.add_argument('--runname', default="Run_01_1k_Samples", type=str)
 
-    # CORRECTED BOOLEAN FLAGS
-    # If --mps is passed in the terminal, it becomes True. If omitted, it defaults to False.
     parser.add_argument('--mps', action='store_true', help='Enable MPS (Metal Performance Shaders)')
     parser.add_argument('--finetune', action='store_true', help='Enable fine-tuning mode')
 
