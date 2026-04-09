@@ -1,80 +1,171 @@
 import torch
+import numpy as np
 from ase.md.langevin import Langevin
 from ase import units
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
-from ase.io import Trajectory, write
+from ase.io import write
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution, Stationary, ZeroRotation
+from ase.optimize import FIRE
 
-from data.crI3 import CrI3
+from data import CrI3
 from .dspingnn import DSpinGNNCalculator
 from model import DSpinGNN
 from train.trainutils import load_checkpoint
 
-from logging import getLogger
-logger = getLogger(__name__)
+from .strains import StrainEngineer
+from .tracker import MaxForceTracker
+import os
+
+import logging
+from tqdm import tqdm
 
 
-def runmd(timesteps, tmpK, outfile):
-    # Detect Hardware (CUDA vs. MPS vs. CPU)
-    if torch.cuda.is_available():
-        device = 'cuda'
-        use_mps = False
-    elif torch.backends.mps.is_available():
-        device = 'mps'
-        use_mps = True
-    else:
-        device = 'cpu'
-        use_mps = False
+class CrI3_Simulator:
+    """Modular class to handle ML-driven Molecular Dynamics for CrI3."""
+    
+    def __init__(self, modelpath, nx, ny, tmpK, timesteps, amplitude, strain_type, out_dir="Simulations"):
+        # Physical & Simulation Parameters
+        self.modelpath = modelpath
+        self.nx = nx
+        self.ny = ny
+        self.tmpK = tmpK
+        self.timesteps = timesteps
+        self.amplitude = amplitude
+        self.strain_type = strain_type
+        
+        # System Setup
+        self.logger = self._setup_logger()
+        self.device = self._detect_hardware()
+        
+        # Dynamically Parameterize the Output Filename
+        os.makedirs(out_dir, exist_ok=True)
+        filename = f"CrI3_MD_{self.strain_type}_{self.nx}x{self.ny}_T{self.tmpK}K_Amp{self.amplitude}A_{self.timesteps}steps.xyz"
+        self.outfile = os.path.join(out_dir, filename)
+        
+        self.logger.info(f"Initialized Simulator. Output will be saved to: {self.outfile}")
 
-    logger.info(f"Hardware detected! Routing tensors to: {device.upper()}")
+    def _setup_logger(self):
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s | %(levelname)s | %(message)s')
+        return logging.getLogger(__name__)
 
-    # Load the Model
-    model = DSpinGNN(mps=use_mps)
-    model, _, _, _ = load_checkpoint(model, 'checkpoints/latest-model.pt', device)
+    def _detect_hardware(self):
+        if torch.cuda.is_available():
+            device = 'cuda'
+        elif torch.backends.mps.is_available():
+            device = 'mps'
+        else:
+            device = 'cpu'
+        self.logger.info(f"Hardware detected! Routing tensors to: {device.upper()}")
+        return device
 
-    # 3. Generate Pristine CrI3 Lattice & Make Supercell
-    logger.info("Generating pristine CrI3 lattice mathematically...")
-    cri3_manager = CrI3() 
-    patoms = cri3_manager.batoms.copy() 
+    def _load_model(self):
+        self.logger.info("Loading PyTorch MLIP model...")
+        model = DSpinGNN()
+        model, _, _, _ = load_checkpoint(model, self.modelpath, self.device)
+        return model
 
-    # Simulate 5x5 in-plane supercell
-    atoms = patoms * (5, 5, 1)
-    logger.info(f"Supercell created with {len(atoms)} atoms.")
+    def build_lattice(self):
+        """Generates the supercell and applies the configured strain."""
+        self.logger.info(f"Generating pristine CrI3 {self.nx}x{self.ny} lattice...")
+        cri3_manager = CrI3()
+        patoms = cri3_manager.batoms.copy()
+        
+        # Build Supercell
+        atoms = patoms * (self.nx, self.ny, 1)
+        
+        return atoms
+    
+    def apply_strain(self, atoms):
+        """Applies the configured strain to the atoms."""
+        self.logger.info(f"Applying {self.strain_type} strain with amplitude {self.amplitude} Å...")
+        strain_engineer = StrainEngineer(amplitude=self.amplitude, strain_type=self.strain_type)
+        strained_atoms = strain_engineer.apply_ripple(atoms, logger=self.logger)
+        return strained_atoms
 
-    # 4. Attach the custom DSpinGNN Calculator
-    atoms.calc = DSpinGNNCalculator(model=model, rcut=7.0, device=device)
+    def run(self):
+        """Executes the main molecular dynamics loop."""
+        # 1. Build and Strain the Atoms
+        atoms = self.build_lattice()
+        
+        # 2. Attach MLIP Calculator
+        model = self._load_model()
+        atoms.calc = DSpinGNNCalculator(model=model, rcut=7.0, device=self.device)
 
-    # 5. Set initial velocities and KILL global rotation
-    logger.info("Thermalizing to 300K...")
-    MaxwellBoltzmannDistribution(atoms, temperature_K=tmpK)
+        # =========================================================
+        # NEW: PRE-RELAX THE LATTICE
+        # =========================================================
+        self.logger.info("Optimizing lattice to the MLIP's exact equilibrium...")
+        opt = FIRE(atoms, logfile=None) # logfile=None keeps the terminal clean
+        opt.run(fmax=0.01) # Run until the maximum force is safely below 0.01 eV/A
+        self.logger.info("Optimization complete!")
+        self.logger.info(f"Post-optimization lattice constants: {atoms.cell[0][0]:.3f} Å (X), {atoms.cell[1][1]:.3f} Å (Y)")
+        # =========================================================
+        
+        # Apply the strain after optimization to ensure we start from the MLIP's ideal geometry
+        atoms = self.apply_strain(atoms)
 
-    # Prevent the "slow rotating/drifting cluster" effect
-    Stationary(atoms)    # Sets center-of-mass velocity to zero
-    ZeroRotation(atoms)  # Sets center-of-mass angular momentum to zero
+        # Pre-register the array so ASE knows it exists
+        atoms.set_array("Local_J", np.zeros(len(atoms)))
 
-    # Thermostat (NVT)
-    # 1.0 fs is a standard safe timestep for heavy transition metals (Cr) and Halogens (I)
-    dyn = Langevin(atoms, timestep=1.0 * units.fs, temperature_K=tmpK, friction=0.01)
+        # 3. Thermalize
+        self.logger.info(f"Thermalizing to {self.tmpK}K...")
+        MaxwellBoltzmannDistribution(atoms, temperature_K=self.tmpK)
+        Stationary(atoms)
+        ZeroRotation(atoms)
 
-    # Setup a custom observer to write an Extended XYZ file
-    open(outfile, 'w').close()
+        # 4. Setup Dynamics Engine
+        dyn = Langevin(atoms, timestep=1.0 * units.fs, temperature_K=self.tmpK, friction=0.01)
 
-    def write_frame():
-        # Append the current atomic state to the XYZ file
-        write(outfile, atoms, append=True)
+        # 5. Clear old file and Setup Writer
+        open(self.outfile, 'w').close()
 
-    # Attach the observer to run every 5 steps
-    dyn.attach(write_frame, interval=5)
+        def write_frame():
+            if 'local_j' in atoms.calc.results:
+                atoms.set_array("Local_J", atoms.calc.results['local_j'])
+            write(self.outfile, atoms, format='extxyz', append=True)
 
-    # 8. Run the test
-    logger.info("Starting Proof of Life MD...")
-    dyn.run(timesteps)
-    logger.info("MD Finished! Open '" + outfile + "' in OVITO to view the dynamics.")
+        dyn.attach(write_frame, interval=5)
+        
+        # =========================================================
+        # ATTACH THE FORCE TRACKER
+        # =========================================================
+        self.logger.info("Initializing Maximum Force Tracker...")
+        tracker = MaxForceTracker(atoms=atoms, dyn=dyn, xyz_path=self.outfile, logger=self.logger)
+        dyn.attach(tracker, interval=10)
 
+        # 6. Setup Progress Bar
+        pbar_interval = 10
+        pbar = tqdm(total=self.timesteps, desc=f"MD Simulation ({self.tmpK}K)", unit="step", dynamic_ncols=True)
+
+        def update_pbar():
+            pbar.update(pbar_interval)
+
+        dyn.attach(update_pbar, interval=pbar_interval)
+
+        # 7. Execute
+        self.logger.info("Starting Simulation...")
+        dyn.run(self.timesteps)
+        pbar.close()
+        self.logger.info(f"MD Finished! Open '{self.outfile}' in OVITO.")
+        self.logger.info(f"Force logs saved to '{tracker.log_file}'.")
 
 
 if __name__ == "__main__":
-    timesteps = 1000
-    tmpK = 300
-    outfile = "CrI3-MD-100.xyz"
-    runmd(timesteps=1000, tmpK=tmpK, outfile=outfile)
+    
+    # =========================================================
+    # SIMULATION CONTROL CENTER
+    # =========================================================
+    
+    config = {
+        "modelpath": "checkpoints/Full-Structural-Model(No-exchange)-1/Epoch-3500.pt",
+        "nx": 5,                     # Unit cells in X direction
+        "ny": 5,                     # Unit cells in Y direction (5x1 Ribbon optimized for local testing)
+        "tmpK": 20,                  # Temperature in Kelvin
+        "timesteps": 10000,          # Total MD steps
+        "amplitude": 0.5,          # Safe amplitude in Å (Under 5% strain limit)
+        "strain_type": "uniaxial"    # "uniaxial" or "biaxial"
+    }
+    
+    # Initialize and run
+    simulator = CrI3_Simulator(**config)
+    simulator.run()
