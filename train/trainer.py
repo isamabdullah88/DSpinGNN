@@ -1,10 +1,10 @@
 import os
 import time
 import torch
-import numpy as np
 import wandb
 from model import calcforce
 from .trainutils import savecheckpoint
+from .metrics import MetricsTracker
 
 class Trainer:
     def __init__(self, model, train_loader, val_loader, optimizer, criterion, device, logger, config, scheduler=None):
@@ -21,15 +21,14 @@ class Trainer:
         self.train_size = int(len(self.train_loader.dataset) / self.config.batch_size)
         self.checkpoints_dir = "./checkpoints"
         os.makedirs(self.checkpoints_dir, exist_ok=True)
+        
+        # Initialize trackers
+        self.train_metrics = MetricsTracker(device)
+        self.val_metrics = MetricsTracker(device)
 
     def train_epoch(self, epoch):
         self.model.train()
-
-        totlosse = 0.0
-        totlossf = 0.0
-        totlossx = 0.0
-        totloss = 0.0
-        totgraphs = 0
+        self.train_metrics.reset()
         
         for k, batch in enumerate(self.train_loader):
             batch = batch.to(self.device)
@@ -42,39 +41,29 @@ class Trainer:
             
             loss, losse, lossf, lossx = self.criterion(energy, forces, exchange, batch)
             loss.backward()
-            
             self.optimizer.step()
             
-            totloss += loss.detach() * batch.num_graphs
-            totgraphs += batch.num_graphs
-            totlosse += losse.detach() * batch.num_graphs
-            totlossf += lossf.detach() * batch.num_graphs
-            totlossx += lossx.detach() * batch.num_graphs
+            # Instantly update metrics
+            self.train_metrics.update_loss(loss, losse, lossf, lossx, batch.num_graphs)
 
-
-        epochloss = (totloss / totgraphs).item()
-        epochlosse = (totlosse / totgraphs).item()
-        epochlossf = (totlossf / totgraphs).item()
-        epochlossx = (totlossx / totgraphs).item()
+        metrics = self.train_metrics.get_averages()
 
         wandb.log({
-            "Train/train_loss": epochloss,
-            "Train/train_loss_energy": epochlosse,
-            "Train/train_loss_forces": epochlossf,
-            "Train/train_loss_exchange": epochlossx,
+            "Train/train_loss": metrics["loss"],
+            "Train/train_loss_energy": metrics["losse"],
+            "Train/train_loss_forces": metrics["lossf"],
+            "Train/train_loss_exchange": metrics["lossx"],
             "iter": self.train_size * epoch + k,
             "Train/learning_rate": self.optimizer.param_groups[0]['lr']
         })
+        
+        return metrics["loss"]
 
     def validate_epoch(self, epoch):
         self.model.eval() 
         self.logger.info("Starting evaluation...")
+        self.val_metrics.reset()
         
-        totloss, totlosse, totlossf, totlossx = 0.0, 0.0, 0.0, 0.0
-        totmaee, totmaef, totmaex, totmaex1, totmaex2 = 0.0, 0.0, 0.0, 0.0, 0.0
-        totatoms, totgraphs, totedges = 0, 0, 0
-        
-        # TODO: Clean all this code up please!
         with torch.enable_grad(): 
             for batch in self.val_loader:
                 batch = batch.to(self.device)
@@ -85,71 +74,34 @@ class Trainer:
 
                 loss, losse, lossf, lossx = self.criterion(energy, forces, exchange, batch)
                 
-                erre = torch.abs(energy.detach().view(-1) - batch.y_energy.view(-1)).sum()
-                errf = torch.abs(forces.detach() - batch.y_forces).sum()
+                # Update all metrics cleanly
+                self.val_metrics.update_loss(loss, losse, lossf, lossx, batch.num_graphs)
+                self.val_metrics.update_mae(energy, forces, exchange, batch)
 
-                j1mask = batch.cr_edge_dist < 4.5
-                j2mask = batch.cr_edge_dist >= 4.5
-
-                errx1 = torch.abs(exchange[j1mask].detach().view(-1) - batch.y_exchange[j1mask].view(-1)).sum()
-                errx2 = torch.abs(exchange[j2mask].detach().view(-1) - batch.y_exchange[j2mask].view(-1)).sum()
-                errx = torch.abs(exchange.detach().view(-1) - batch.y_exchange.view(-1)).sum()
-                
-                numgraphs = batch.num_graphs
-                numatoms = batch.pos.shape[0]
-                numedges1 = j1mask.sum().item()
-                numedges2 = j2mask.sum().item()
-                numedges = batch.cr_edge_index.shape[1]
-                
-                totloss += loss.item() * numgraphs
-                totlosse += losse.item() * numgraphs
-                totlossf += lossf.item() * numgraphs
-                totlossx += lossx.item() * numgraphs
-                totmaee += erre
-                totmaef += errf
-                totmaex += errx
-
-                totmaex1 += errx1
-                totmaex2 += errx2
-
-                totgraphs += numgraphs
-                totatoms += numatoms
-                totedges += numedges
-                totedges1 += numedges1
-                totedges2 += numedges2
-
-
-        epochloss = (totloss / totgraphs).item()
-        epochlosse = (totlosse / totgraphs).item()
-        epochlossf = (totlossf / totgraphs).item()
-        epochlossx = (totlossx / totgraphs).item()
-
-        maee = (totmaee / totatoms).item()
-        maef = (totmaef / (totatoms * 3)).item()
-        maex = (totmaex / totedges).item()
-        maex1 = (totmaex1 / numedges1).item() if numedges1 > 0 else 0
-        maex2 = (totmaex2 / numedges2).item() if numedges2 > 0 else 0
+        metrics = self.val_metrics.get_averages()
 
         self.logger.info("[TRAIN] RESULTS (Validation Set)")
-        self.logger.info(f"[TRAIN] Val Loss (MSE):     {epochloss:.5f}")
-        self.logger.info(f"[TRAIN] Val Energy (MAE):   {maee:.5f} eV/atom")
-        self.logger.info(f"[TRAIN] Val Forces (MAE):   {maef:.5f} eV/A")
-        self.logger.info(f"[TRAIN] Val Exchange (MAE): {maex:.5f}")
-        self.logger.info(f"[TRAIN] Val Exchange (MAE) - Short Range: {maex1:.5f}")
-        self.logger.info(f"[TRAIN] Val Exchange (MAE) - Long Range: {maex2:.5f}")
+        self.logger.info(f"[TRAIN] Val Loss (MSE):     {metrics['loss']:.5f}")
+        self.logger.info(f"[TRAIN] Val Energy (MAE):   {metrics['maee']:.5f} eV/atom")
+        self.logger.info(f"[TRAIN] Val Forces (MAE):   {metrics['maef']:.5f} eV/A")
+        self.logger.info(f"[TRAIN] Val Exchange (MAE): {metrics['maex']:.5f}")
+        self.logger.info(f"[TRAIN] Val Exchange (MAE) - Short Range: {metrics['maex1']:.5f}")
+        self.logger.info(f"[TRAIN] Val Exchange (MAE) - Long Range: {metrics['maex2']:.5f}")
 
         wandb.log({
-            "Test/MAE-Exchange": maex,
-            "Test/MAE-Exchange-Short": maex1,
-            "Test/MAE-Exchange-Long": maex2,
-            "Test/MAE-Energy": maee,
-            "Test/MAE-Force": maef,
-            "Test/Validation-Loss": epochloss,
-            "Test/Validation-Loss-Energy": epochlosse,
-            "Test/Validation-Loss-Forces": epochlossf,
-            "Test/Validation-Loss-Exchange": epochlossx,
+            "Test/MAE-Exchange": metrics["maex"],
+            "Test/MAE-Exchange-Short": metrics["maex1"],
+            "Test/MAE-Exchange-Long": metrics["maex2"],
+            "Test/MAE-Energy": metrics["maee"],
+            "Test/MAE-Force": metrics["maef"],
+            "Test/Validation-Loss": metrics["loss"],
+            "Test/Validation-Loss-Energy": metrics["losse"],
+            "Test/Validation-Loss-Forces": metrics["lossf"],
+            "Test/Validation-Loss-Exchange": metrics["lossx"],
             "epoch": epoch
         })
+        
+        return metrics["loss"]
 
     def save_models(self, epoch, loss):
         checkpoint_path = os.path.join(self.checkpoints_dir, f"Epoch-{epoch:04d}.pt")
@@ -169,12 +121,11 @@ class Trainer:
             
             epochloss = self.train_epoch(epoch)
             
-            if (epoch + 1) % 1 == 0:
-                self.validate_epoch(epoch)
+            if (epoch + 1) % 50 == 0:
+                val_loss = self.validate_epoch(epoch)
                 
                 # if self.scheduler is not None:
-                    # Step based on Force MAE since forces are the hardest to fit
-                    # self.scheduler.step(val_maex)
+                    # self.scheduler.step(val_loss)
                 
             line = f"Epoch [{epoch+1}/{self.config.epochs}], Loss: {epochloss:.4f}, Time: {(time.time()-stime): .01f}\n" 
             self.logger.info(line)
