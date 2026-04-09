@@ -14,7 +14,9 @@ vib/
 Results/
 DataSets/
 Outputs/
+Simulations/
 wandbkey.txt
+ServerCommands.txt
 
 # C extensions
 *.so
