@@ -11,7 +11,7 @@ class OutputBlock(nn.Module):
         self.linear = o3.Linear(input_irreps, o3.Irreps("1x0e"))
 
         self.scale = nn.Parameter(torch.tensor(1.0))
-        self.shift = nn.Parameter(torch.tensor(torch.zeros(num_species)))
+        self.shift = nn.Parameter(torch.zeros(num_species))
 
     def forward(self, nodes: torch.Tensor, atom: torch.Tensor) -> torch.Tensor:
         rawe = self.linear(nodes)
