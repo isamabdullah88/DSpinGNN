@@ -40,7 +40,7 @@ class DSpinGNN(nn.Module):
 
         self.interaction_block5 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
 
-        # self.exchange_block = ExchangeBlock(self.l0dim, self.l1dim, self.l2dim)
+        self.exchange_block = ExchangeBlock(self.l0dim, self.l1dim, self.l2dim)
 
         self.output_block = OutputBlock(self.l0dim, self.l1dim, self.l2dim)
 
@@ -58,8 +58,7 @@ class DSpinGNN(nn.Module):
 
         interacted5 = self.interaction_block5(interacted4, batch)
         
-        # exchangej = self.exchange_block(interacted5, batch)
-        exchangej = torch.tensor(0.0)
+        exchangej = self.exchange_block(interacted5, batch)
 
         output = self.output_block(interacted5, batch.z)
 
