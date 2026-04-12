@@ -41,6 +41,7 @@ def main(args):
 
     # Model Construction
     model = DSpinGNN()
+    wandb.config.update({"Model_Architecture": str(model)})
     model = model.to(device)
     
     if args.finetune:
