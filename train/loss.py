@@ -2,39 +2,45 @@ import torch
 import torch.nn.functional as F
 
 class MultiTaskLoss:
-    def __init__(self, wenergy=1.0, wforce=100.0, wexchange=1.0):
+    def __init__(self, wenergy=1.0, wforce=100.0, wexchange=1.0, short_weight=10.0, cutoff=4.5):
         self.we = wenergy
         self.wf = wforce
         self.wx = wexchange
-
-    def exchangeloss(self, xpred, jvals, edgedists):
-        base_loss = F.huber_loss(xpred, jvals, delta=0.5, reduction='none')
-        weights = edgedists.mean() / edgedists
-        wlossx = torch.mean(weights.view(-1, 1) * base_loss)
-        return wlossx
+        
+        # Parameterize your custom weighting logic
+        self.short_weight = short_weight
+        self.cutoff = cutoff
 
     def __call__(self, epred, fpred, xpred, batch):
-        """Calculates and weights the multi-task MSE loss."""
+        """Calculates and weights the multi-task MSE/L1 loss."""
         
-        # PRO-TIP: Always use .view(-1) on scalar targets in MSE to prevent 
-        # silent broadcasting bugs where [N, 1] and [N] accidentally create an [N, N] matrix!
         losse = F.mse_loss(epred.view(-1), batch.y_energy.view(-1))
         lossf = F.mse_loss(fpred, batch.y_forces)
 
-        credges = batch.cr_edge_index[0]
-        graphidx = batch.batch[credges]
+        # =========================================================
+        # NEW: Distance-Weighted Exchange Loss
+        # =========================================================
         
-        exchange_mask = batch.exchange[graphidx].view(-1)
-        xpredp = xpred[exchange_mask]
-        yexchangep = batch.y_exchange[exchange_mask]
-
-        # SAFEGUARD: Check if this batch actually contains any J data
-        if xpredp.numel() > 0:
-            # Using standard MSE for this experiment
-            lossx = F.l1_loss(xpredp.view(-1), yexchangep.view(-1))
-        else:
-            # THE FIX: Keep lossx attached to the graph, but force gradients to 0.0
-            lossx = xpred.sum() * 0.0
+        # 1. Dynamically calculate the distance for every edge.
+        # (If your dataset already has an explicit distance attribute like 
+        # batch.edge_dist or batch.distances, you can use that directly instead!)
+        # row, col = batch.edge_index
+        # distances = torch.norm(batch.pos[row] - batch.pos[col], p=2, dim=1)
+        cr_edge_dist = batch.cr_edge_dist.view(-1)
+        
+        # 2. Compute the raw L1 loss for every individual edge (no averaging yet)
+        base_lossx = F.l1_loss(xpred.view(-1), batch.y_exchange.view(-1), reduction='none')
+        
+        # 3. Create a weight tensor: 10.0 if distance < 4.5 Å, else 1.0.
+        # Using xpred.device ensures the newly created tensors stay on the active GPU.
+        weights = torch.where(cr_edge_dist < self.cutoff, 
+                              torch.tensor(self.short_weight, dtype=xpred.dtype, device=xpred.device), 
+                              torch.tensor(1.0, dtype=xpred.dtype, device=xpred.device))
+        
+        # 4. Multiply the element-wise losses by your weights and take the mean
+        lossx = torch.mean(weights * base_lossx)
+        
+        # =========================================================
             
         loss_tot = (self.we * losse) + (self.wf * lossf) + (self.wx * lossx)
         
