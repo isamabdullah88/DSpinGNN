@@ -124,8 +124,8 @@ class Trainer:
             if (epoch + 1) % 50 == 0:
                 val_loss = self.validate_epoch(epoch)
                 
-                # if self.scheduler is not None:
-                    # self.scheduler.step(val_loss)
+                if self.scheduler is not None:
+                    self.scheduler.step(val_loss)
                 
             line = f"Epoch [{epoch+1}/{self.config.epochs}], Loss: {epochloss:.4f}, Time: {(time.time()-stime): .01f}\n" 
             self.logger.info(line)
