@@ -14,7 +14,7 @@ def getdata(datasetpath, batch_size=32):
     logprefix = "[DATA] "
     logger = logging.getLogger(__name__)
 
-    datalist = torch.load(datasetpath)
+    datalist = torch.load(datasetpath, weights_only=False)
 
     """
         # Assuming 'dataset' is your list of Data() objects
