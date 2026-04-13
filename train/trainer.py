@@ -121,7 +121,7 @@ class Trainer:
             
             epochloss = self.train_epoch(epoch)
             
-            if (epoch + 1) % 50 == 0:
+            if (epoch + 1) % 20 == 0:
                 val_loss = self.validate_epoch(epoch)
                 
                 if self.scheduler is not None:
