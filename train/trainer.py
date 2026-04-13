@@ -130,7 +130,7 @@ class Trainer:
             line = f"Epoch [{epoch+1}/{self.config.epochs}], Loss: {epochloss:.4f}, Time: {(time.time()-stime): .01f}\n" 
             self.logger.info(line)
             
-            if epoch % 10 == 0:
+            if epoch % 100 == 0:
                 self.save_models(epoch, epochloss)
                 
         wandb.finish()
