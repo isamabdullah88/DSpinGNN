@@ -60,11 +60,11 @@ def main(args):
     # Optimizer & Loss
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', factor=0.5, patience=20, min_lr=1e-6, verbose=True
+        optimizer, mode='min', factor=0.5, patience=100, min_lr=1e-4, verbose=True
     )
 
     # Loss function with specified weights for each task
-    criterion = MultiTaskLoss(wenergy=1.0, wforce=100.0, wexchange=1.0)
+    criterion = MultiTaskLoss(wenergy=1.0, wforce=100.0, wexchange=10.0)
 
     # Train
     trainer = Trainer(
