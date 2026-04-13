@@ -6,7 +6,7 @@ from .embedding import RadialEmbedding
     
 
 class ExchangeBlock(nn.Module):
-    def __init__(self, l0dim, l1dim, l2dim, numscalars=64, numbasis=64):
+    def __init__(self, l0dim, l1dim, l2dim, numscalars=256, numbasis=128):
         super(ExchangeBlock, self).__init__()
 
         irrepsin = o3.Irreps(f"{l0dim}x0e + {l1dim}x1o + {l2dim}x2e")
@@ -23,15 +23,15 @@ class ExchangeBlock(nn.Module):
         self.rembedding = RadialEmbedding(cutoff=7.0, num_basis=numbasis)
 
         self.distfilter = nn.Sequential(
-            nn.Linear(numbasis, 64),
+            nn.Linear(numbasis, 512),
             nn.SiLU(),
-            nn.Linear(64, numscalars)
+            nn.Linear(512, numscalars)
         )
 
         self.mlp = nn.Sequential(
-            nn.Linear(numscalars, 256),
+            nn.Linear(numscalars, 1024),
             nn.SiLU(),
-            nn.Linear(256, 1)
+            nn.Linear(1024, 1)
         )
 
 
