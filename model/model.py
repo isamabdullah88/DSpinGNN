@@ -34,11 +34,11 @@ class DSpinGNN(nn.Module):
 
         self.interaction_block2 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
         
-        self.interaction_block3 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
+        # self.interaction_block3 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
 
-        self.interaction_block4 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
+        # self.interaction_block4 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
 
-        self.interaction_block5 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
+        # self.interaction_block5 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
 
         self.exchange_block = ExchangeBlock(self.l0dim, self.l1dim, self.l2dim)
 
@@ -52,15 +52,15 @@ class DSpinGNN(nn.Module):
 
         interacted2 = self.interaction_block2(interacted1, batch)
 
-        interacted3 = self.interaction_block3(interacted2, batch)
+        # interacted3 = self.interaction_block3(interacted2, batch)
 
-        interacted4 = self.interaction_block4(interacted3, batch)
+        # interacted4 = self.interaction_block4(interacted3, batch)
 
-        interacted5 = self.interaction_block5(interacted4, batch)
+        # interacted5 = self.interaction_block5(interacted4, batch)
         
-        exchangej = self.exchange_block(interacted5, batch)
+        exchangej = self.exchange_block(interacted2, batch)
 
-        output = self.output_block(interacted5, batch.z)
+        output = self.output_block(interacted2, batch.z)
 
         energyt = global_add_pool(output, batch.batch)
 
