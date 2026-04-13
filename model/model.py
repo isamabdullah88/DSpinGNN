@@ -23,9 +23,9 @@ class DSpinGNN(nn.Module):
         super(DSpinGNN, self).__init__()
         
         self.numembeds = 118
-        self.l0dim = 32
-        self.l1dim: int = 16
-        self.l2dim: int = 8
+        self.l0dim = 64
+        self.l1dim: int = 32
+        self.l2dim: int = 16
         self.rcut = 7.0
 
         self.atomembeds = AtomEmbedding(self.l0dim, self.l1dim, self.l2dim, self.numembeds)
@@ -34,7 +34,7 @@ class DSpinGNN(nn.Module):
 
         self.interaction_block2 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
         
-        # self.interaction_block3 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
+        self.interaction_block3 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
 
         # self.interaction_block4 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
 
@@ -52,15 +52,15 @@ class DSpinGNN(nn.Module):
 
         interacted2 = self.interaction_block2(interacted1, batch)
 
-        # interacted3 = self.interaction_block3(interacted2, batch)
+        interacted3 = self.interaction_block3(interacted2, batch)
 
         # interacted4 = self.interaction_block4(interacted3, batch)
 
         # interacted5 = self.interaction_block5(interacted4, batch)
         
-        exchangej = self.exchange_block(interacted2, batch)
+        exchangej = self.exchange_block(interacted3, batch)
 
-        output = self.output_block(interacted2, batch.z)
+        output = self.output_block(interacted3, batch.z)
 
         energyt = global_add_pool(output, batch.batch)
 
