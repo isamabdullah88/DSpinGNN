@@ -73,13 +73,13 @@ class DSpinGNNCalculator(Calculator):
         self.results['forces'] = forces.detach().cpu().numpy()
 
         # 7. Map Edge Exchange (J) to Atomic Nodes for OVITO
-        # local_j_field = torch.zeros(len(self.atoms), dtype=torch.float32, device=self.device)
+        local_j_field = torch.zeros(len(self.atoms), dtype=torch.float32, device=self.device)
 
         # IMPORTANT: We must use cr_edge_index[0] here so the J values are 
         # mapped to the Chromium atoms, not mistakenly mapped to Iodine atoms!
-        # if exchange.numel() > 0:
-        #     local_j_field.scatter_add_(0, cr_edge_index[0], exchange.view(-1).detach())
+        if exchange.numel() > 0:
+            local_j_field.scatter_add_(0, cr_edge_index[0], exchange.view(-1).detach())
 
         # Attach the Local_J array for the XYZ writer
-        # self.atoms.set_array("Local_J", local_j_field.cpu().numpy())
-        # self.results['local_j'] = local_j_field.cpu().numpy()
+        self.atoms.set_array("Local_J", local_j_field.cpu().numpy())
+        self.results['local_j'] = local_j_field.cpu().numpy()
