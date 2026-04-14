@@ -21,23 +21,23 @@ class ExchangeBlock(nn.Module):
 
         self.rembedding = RadialEmbedding(cutoff=7.0, num_basis=numbasis)
 
-        self.distfilter = nn.Sequential(
-            nn.Linear(numbasis, 512),
-            nn.SiLU(),
-            nn.Linear(512, numscalars)
-        )
+        # self.distfilter = nn.Sequential(
+        #     nn.Linear(numbasis, 512),
+        #     nn.SiLU(),
+        #     nn.Linear(512, numscalars)
+        # )
 
         # UPGRADE: MLP now takes numscalars + 1 (for the explicit exponential distance feature)
         self.mlp_in = nn.Sequential(
-            nn.Linear(numscalars + 1, 1024),
+            nn.Linear(numscalars + numbasis, 1024),
             nn.SiLU()
         )
         
         # UPGRADE: Residual block
-        self.mlp_res = nn.Sequential(
-            nn.Linear(1024, 1024),
-            nn.SiLU()
-        )
+        # self.mlp_res = nn.Sequential(
+        #     nn.Linear(1024, 1024),
+        #     nn.SiLU()
+        # )
         
         self.mlp_out = nn.Linear(1024, 1)
 
@@ -63,27 +63,24 @@ class ExchangeBlock(nn.Module):
 
         mixednorm = self.normlayer(mixed)
 
-        distembedding = self.rembedding(dist)
-        distfilter = self.distfilter(distembedding)
+        # Explicit distance feature that decays with distance, providing a strong inductive bias for physical interactions
+        exp_dist = torch.exp(-dist)  
 
-        regulated_feat = mixednorm * distfilter
+        distembedding = self.rembedding(exp_dist)
+        # distfilter = self.distfilter(distembedding)
 
-        # ==========================================
-        # FIX 2: Explicit Exponential Decay Feature
-        # ==========================================
-        # This explicitly tells the network when a bond is short-range (< 4.0 A)
-        exp_dist = torch.exp(-dist) 
+        # regulated_feat = mixednorm * distfilter
         
         # Concatenate the physics feature to the network features
-        mlp_input = torch.cat([regulated_feat, exp_dist], dim=-1)
+        mlp_input = torch.cat([mixednorm, distembedding], dim=-1)
 
         # ==========================================
         # FIX 3: Residual MLP
         # ==========================================
         h1 = self.mlp_in(mlp_input)
-        h2 = self.mlp_res(h1)
-        h_out = h1 + h2  # Residual connection
+        # h2 = self.mlp_res(h1)
+        # h_out = h1 + h2  # Residual connection
         
-        outx = self.mlp_out(h_out)
+        outx = self.mlp_out(h1)
 
         return outx
