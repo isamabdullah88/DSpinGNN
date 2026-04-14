@@ -29,7 +29,7 @@ class ExchangeBlock(nn.Module):
 
         # UPGRADE: MLP now takes numscalars + 1 (for the explicit exponential distance feature)
         self.mlp_in = nn.Sequential(
-            nn.Linear(numscalars + numbasis, 1024),
+            nn.Linear(numscalars, 1024),
             nn.SiLU()
         )
         
