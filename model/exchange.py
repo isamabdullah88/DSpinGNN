@@ -5,7 +5,7 @@ from e3nn import o3
 from .embedding import RadialEmbedding
     
 class ExchangeBlock(nn.Module):
-    def __init__(self, l0dim, l1dim, l2dim, numscalars=256, numbasis=128):
+    def __init__(self, l0dim, l1dim, l2dim, numscalars=512, numbasis=256):
         super(ExchangeBlock, self).__init__()
 
         irrepsin = o3.Irreps(f"{l0dim}x0e + {l1dim}x1o + {l2dim}x2e")
@@ -21,11 +21,11 @@ class ExchangeBlock(nn.Module):
 
         self.rembedding = RadialEmbedding(cutoff=7.0, num_basis=numbasis)
 
-        # self.distfilter = nn.Sequential(
-        #     nn.Linear(numbasis, 512),
-        #     nn.SiLU(),
-        #     nn.Linear(512, numscalars)
-        # )
+        self.distfilter = nn.Sequential(
+            nn.Linear(numbasis, 1024),
+            nn.SiLU(),
+            nn.Linear(1024, numscalars)
+        )
 
         # UPGRADE: MLP now takes numscalars + 1 (for the explicit exponential distance feature)
         self.mlp_in = nn.Sequential(
@@ -38,6 +38,9 @@ class ExchangeBlock(nn.Module):
         #     nn.Linear(1024, 1024),
         #     nn.SiLU()
         # )
+        # # FIX: Zero-initialize the final layer of the residual block
+        # nn.init.zeros_(self.mlp_res[-1].weight)
+        # nn.init.zeros_(self.mlp_res[-1].bias)
         
         self.mlp_out = nn.Linear(1024, 1)
 
@@ -64,15 +67,15 @@ class ExchangeBlock(nn.Module):
         mixednorm = self.normlayer(mixed)
 
         # Explicit distance feature that decays with distance, providing a strong inductive bias for physical interactions
-        exp_dist = torch.exp(-dist)  
+        # exp_dist = torch.exp(-dist)
 
-        distembedding = self.rembedding(exp_dist)
-        # distfilter = self.distfilter(distembedding)
+        distembedding = self.rembedding(1.0 / (dist + 1e-6))  # Inverse distance embedding
+        distfilter = self.distfilter(distembedding)
 
-        # regulated_feat = mixednorm * distfilter
+        regulated_feat = mixednorm * distfilter
         
         # Concatenate the physics feature to the network features
-        mlp_input = torch.cat([mixednorm, distembedding], dim=-1)
+        mlp_input = torch.cat(regulated_feat, dim=-1)
 
         # ==========================================
         # FIX 3: Residual MLP
