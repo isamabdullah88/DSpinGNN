@@ -42,6 +42,7 @@ def main(args):
     # Model Construction
     model = DSpinGNN()
     wandb.config.update({"Model_Architecture": str(model)})
+    wandb.save("model/*.py", base_path="./") # Save model architecture files to wandb for reproducibility
     model = model.to(device)
     
     if args.finetune:
