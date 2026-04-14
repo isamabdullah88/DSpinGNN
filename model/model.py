@@ -23,9 +23,9 @@ class DSpinGNN(nn.Module):
         super(DSpinGNN, self).__init__()
         
         self.numembeds = 118
-        self.l0dim = 64
-        self.l1dim: int = 32
-        self.l2dim: int = 16
+        self.l0dim = 32
+        self.l1dim: int = 16
+        self.l2dim: int = 8
         self.rcut = 7.0
 
         self.atomembeds = AtomEmbedding(self.l0dim, self.l1dim, self.l2dim, self.numembeds)
