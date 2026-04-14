@@ -75,12 +75,12 @@ class ExchangeBlock(nn.Module):
         regulated_feat = mixednorm * distfilter
         
         # Concatenate the physics feature to the network features
-        mlp_input = torch.cat(regulated_feat, dim=-1)
+        # mlp_input = torch.cat(regulated_feat, dim=-1)
 
         # ==========================================
         # FIX 3: Residual MLP
         # ==========================================
-        h1 = self.mlp_in(mlp_input)
+        h1 = self.mlp_in(regulated_feat)
         # h2 = self.mlp_res(h1)
         # h_out = h1 + h2  # Residual connection
         
