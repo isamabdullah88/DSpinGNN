@@ -10,18 +10,17 @@ class AtomEmbedding(nn.Module):
         
         self.embedding = nn.Embedding(numembeds, embeddim)
 
-        # self.input_irreps = o3.Irreps(f"{embeddim}x0e")
-        # self.out_irreps = o3.Irreps(f"{embeddim}x0e + {l1dim}x1o + {l2dim}x2o")
+        self.input_irreps = o3.Irreps(f"{embeddim}x0e")
+        self.out_irreps = o3.Irreps(f"{embeddim}x0e + {l1dim}x1o + {l2dim}x2o")
 
-        # self.linear = o3.Linear(self.input_irreps, self.out_irreps)
+        self.linear = o3.Linear(self.input_irreps, self.out_irreps)
 
     def forward(self, z: torch.Tensor) -> torch.Tensor:
         embeds = self.embedding(z)
 
-        # linear = self.linear(embeds)
+        linear = self.linear(embeds)
         
-        # return linear
-        return embeds
+        return linear
     
 
 class RadialEmbedding(nn.Module):
