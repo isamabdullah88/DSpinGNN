@@ -11,8 +11,8 @@ class MultiTaskLoss:
         self.mag_alpha = mag_alpha
 
     def __call__(self, epred, fpred, xpred, batch):
-        # losse = F.mse_loss(epred.view(-1), batch.y_energy.view(-1))
-        # lossf = F.mse_loss(fpred, batch.y_forces)
+        losse = F.mse_loss(epred.view(-1), batch.y_energy.view(-1))
+        lossf = F.mse_loss(fpred, batch.y_forces)
 
         # 1. Base per-edge exchange loss
         baselossx = F.mse_loss(xpred.view(-1), batch.y_exchange.view(-1), reduction='mean')
@@ -34,11 +34,8 @@ class MultiTaskLoss:
         # 5. Apply and average
         lossx = torch.mean(total_weights * baselossx)
         """
+        lossx = baselossx
             
-        # loss_tot = (self.we * losse) + (self.wf * lossf) + (self.wx * baselossx)
-        losse = torch.tensor(0.0, device=epred.device)  # Placeholder for energy loss
-        lossf = torch.tensor(0.0, device=fpred.device)  # Placeholder for force loss
-        lossx = baselossx  # Use the base exchange loss as the final exchange loss for now
-        loss_tot = lossx
+        loss_tot = (self.we * losse) + (self.wf * lossf) + (self.wx * baselossx)
         
         return loss_tot, losse, lossf, lossx
