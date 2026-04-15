@@ -57,16 +57,16 @@ class RadialEmbedding(nn.Module):
 
 class Radial(nn.Module):
     # Added min_dist to the initialization!
-    def __init__(self, indim, outdim, rcut=4.1, min_dist=3.5):
+    def __init__(self, indim, outdim, rcut=4.1, min_dist=3.5, hidden_dim=64):
         super(Radial, self).__init__()
         self.rcut = rcut
         self.min_dist = min_dist
         self.numbasis = indim
 
         self.model = nn.Sequential(
-            nn.Linear(indim, 64),
+            nn.Linear(indim, hidden_dim),
             nn.SiLU(),
-            nn.Linear(64, outdim)
+            nn.Linear(hidden_dim, outdim)
         )
 
     def forward(self, dist):
