@@ -18,8 +18,8 @@ class MultiTaskLoss:
         base_lossx = F.mse_loss(xpred.view(-1), batch.y_exchange.view(-1), reduction='none')
 
         # 2. Distance Weights
-        row, col = batch.edge_index
-        distances = torch.norm(batch.pos[row] - batch.pos[col], p=2, dim=1)
+        distances = batch.cr_edge_dist.view(-1)
+        
         distance_weights = torch.where(distances < self.cutoff, 
                                        torch.tensor(self.short_weight, dtype=xpred.dtype, device=xpred.device), 
                                        torch.tensor(1.0, dtype=xpred.dtype, device=xpred.device))
