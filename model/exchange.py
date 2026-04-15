@@ -8,16 +8,16 @@ class ExchangeBlock(nn.Module):
     def __init__(self, l0dim, l1dim, l2dim, numscalars=64, numbasis=64):
         super(ExchangeBlock, self).__init__()
 
-        # irrepsin = o3.Irreps(f"{l0dim}x0e + {l1dim}x1o + {l2dim}x2e")
-        # irrepsout = o3.Irreps(f"{numscalars}x0e")
+        irrepsin = o3.Irreps(f"{l0dim}x0e + {l1dim}x1o + {l2dim}x2e")
+        irrepsout = o3.Irreps(f"{numscalars}x0e")
 
-        # self.tp = o3.FullyConnectedTensorProduct(
-        #     irreps_in1=irrepsin, 
-        #     irreps_in2=irrepsin, 
-        #     irreps_out=irrepsout
-        # )
+        self.tp = o3.FullyConnectedTensorProduct(
+            irreps_in1=irrepsin, 
+            irreps_in2=irrepsin, 
+            irreps_out=irrepsout
+        )
 
-        # self.normlayer = nn.LayerNorm(numscalars)
+        self.normlayer = nn.LayerNorm(numscalars)
 
         # self.rembedding = ConstrainedRadialEmbedding(min_dist=3.5, max_dist=4.1, num_basis=numbasis)
         self.rembedding = Radial(numbasis, numbasis)
@@ -30,7 +30,7 @@ class ExchangeBlock(nn.Module):
 
         # UPGRADE: MLP now takes numscalars + 1 (for the explicit exponential distance feature)
         self.mlp_in = nn.Sequential(
-            nn.Linear(numbasis + 3, 256),
+            nn.Linear(numscalars + numbasis + 3, 256),
             nn.SiLU(),
             nn.Linear(256, 256),
             nn.SiLU()
@@ -65,12 +65,12 @@ class ExchangeBlock(nn.Module):
         # ==========================================
         # FIX 1: Explicit Permutation Symmetry
         # ==========================================
-        # mixed = self.tp(nodes[src], nodes[dst])
+        mixed = self.tp(nodes[src], nodes[dst])
         # mixed_backward = self.tp(nodes[dst], nodes[src])
         # mixed = 0.5 * (mixed_forward + mixed_backward)
         # print(f"Mixed features: {mixed.squeeze().cpu()}")
 
-        # mixednorm = self.normlayer(mixed)
+        mixednorm = self.normlayer(mixed)
         # print(f"Normalized mixed features: {mixednorm.squeeze().cpu()}")
 
         # Explicit distance feature that decays with distance, providing a strong inductive bias for physical interactions
@@ -96,7 +96,7 @@ class ExchangeBlock(nn.Module):
             cri_max_feat
         ], dim=-1)
 
-        # regulated_feat = torch.cat([mixednorm, edge_features], dim=-1)
+        regulated_feat = torch.cat([mixednorm, edge_features], dim=-1)
         # print(f"Regulated features: {regulated_feat.squeeze().cpu()}")
 
         # Concatenate the physics feature to the network features
@@ -105,7 +105,7 @@ class ExchangeBlock(nn.Module):
         # ==========================================
         # FIX 3: Residual MLP
         # ==========================================
-        h1 = self.mlp_in(edge_features)
+        h1 = self.mlp_in(regulated_feat)
         # print(f"MLP output features (before residual): {h1.squeeze().cpu()}")
 
         # h2 = self.mlp_res(mixednorm)
