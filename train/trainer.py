@@ -46,9 +46,9 @@ class Trainer:
             # Instantly update metrics
             self.train_metrics.update_loss(loss, losse, lossf, lossx, batch.num_graphs)
 
-            self.logger.info(f"[Training]")
-            self.logger.info(f"Sum of absolute exchange values greater than 1.0 in batch: {torch.sum(torch.abs(batch.y_exchange[torch.abs(batch.y_exchange) > 1.0])).item():.4f}")
-            self.logger.info(f"Sum of absolute predicted exchange values greater than 1.0 in batch: {torch.sum(torch.abs(exchange[torch.abs(exchange) > 1.0])).item():.4f}")
+            # self.logger.info(f"[Training]")
+            # self.logger.info(f"Sum of absolute exchange values greater than 1.0 in batch: {torch.sum(torch.abs(batch.y_exchange[torch.abs(batch.y_exchange) > 1.0])).item():.4f}")
+            # self.logger.info(f"Sum of absolute predicted exchange values greater than 1.0 in batch: {torch.sum(torch.abs(exchange[torch.abs(exchange) > 1.0])).item():.4f}")
 
         metrics = self.train_metrics.get_averages()
 
@@ -69,7 +69,7 @@ class Trainer:
         self.val_metrics.reset()
         
         with torch.enable_grad(): 
-            for batch in self.val_loader:
+            for batch in self.train_loader:
                 batch = batch.to(self.device)
                 batch.pos.requires_grad_(True)
                 

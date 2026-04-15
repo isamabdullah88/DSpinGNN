@@ -118,7 +118,7 @@ def getdata(datasetpath, batch_size=32):
     meanj = jvals.mean()
     logger.info(f"{logprefix}Shifted Dataset Mean Exchange J: {meanj:.6f} meV")
     
-    trsize = int(0.9 * len(datalist))
+    trsize = int(1.0 * len(datalist))
     vsize = len(datalist) - trsize
     # ttsize = len(datalist) - trsize - vsize
     ttsize = 0
