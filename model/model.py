@@ -9,12 +9,13 @@ from .exchange import ExchangeBlock
 
 
 def calcforce(energy, pos):
-    ones = torch.ones_like(energy)
+    # ones = torch.ones_like(energy)
 
-    grads = torch.autograd.grad(outputs=energy, inputs=pos, grad_outputs=ones, create_graph=True,
-                                retain_graph=True, allow_unused=False)[0]
+    # grads = torch.autograd.grad(outputs=energy, inputs=pos, grad_outputs=ones, create_graph=True,
+    #                             retain_graph=True, allow_unused=False)[0]
 
-    forces = -grads
+    # forces = -grads
+    forces = torch.tensor([[0.0, 0.0, 0.0]], device=energy.device)  # Dummy forces for now
     return forces
 
 
@@ -30,11 +31,11 @@ class DSpinGNN(nn.Module):
 
         self.atomembeds = AtomEmbedding(self.l0dim, self.l1dim, self.l2dim, self.numembeds)
 
-        self.interaction_block1 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
+        # self.interaction_block1 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
 
-        self.interaction_block2 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
+        # self.interaction_block2 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
         
-        self.interaction_block3 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
+        # self.interaction_block3 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
 
         # self.interaction_block4 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
 
@@ -48,21 +49,22 @@ class DSpinGNN(nn.Module):
 
         nodes = self.atomembeds(batch.z)
 
-        interacted1 = self.interaction_block1(nodes, batch)
+        # interacted1 = self.interaction_block1(nodes, batch)
 
-        interacted2 = self.interaction_block2(interacted1, batch)
+        # interacted2 = self.interaction_block2(interacted1, batch)
 
-        interacted3 = self.interaction_block3(interacted2, batch)
+        # interacted3 = self.interaction_block3(interacted2, batch)
 
         # interacted4 = self.interaction_block4(interacted3, batch)
 
         # interacted5 = self.interaction_block5(interacted4, batch)
         
-        exchangej = self.exchange_block(interacted3, batch)
+        exchangej = self.exchange_block(nodes, batch)
 
-        output = self.output_block(interacted3, batch.z)
+        # output = self.output_block(interacted2, batch.z)
 
-        energyt = global_add_pool(output, batch.batch)
+        # energyt = global_add_pool(output, batch.batch)
+        energyt = torch.tensor([0.0], device=nodes.device)  # Dummy energy output for now
 
         return energyt, exchangej
     
