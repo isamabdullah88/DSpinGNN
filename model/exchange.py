@@ -30,6 +30,8 @@ class ExchangeBlock(nn.Module):
         # UPGRADE: MLP now takes numscalars + 1 (for the explicit exponential distance feature)
         self.mlp_in = nn.Sequential(
             nn.Linear(numscalars, 1024),
+            nn.SiLU(),
+            nn.Linear(1024, 1024),
             nn.SiLU()
         )
         
@@ -38,7 +40,7 @@ class ExchangeBlock(nn.Module):
         #     nn.Linear(1024, 1024),
         #     nn.SiLU()
         # )
-        # # FIX: Zero-initialize the final layer of the residual block
+        # # # FIX: Zero-initialize the final layer of the residual block
         # nn.init.zeros_(self.mlp_res[-1].weight)
         # nn.init.zeros_(self.mlp_res[-1].bias)
         
