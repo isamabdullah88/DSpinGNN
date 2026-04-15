@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 
 class MultiTaskLoss:
-    def __init__(self, wenergy=1.0, wforce=100.0, wexchange=1.0, short_weight=5.0, cutoff=4.0, mag_alpha=0.5):
+    def __init__(self, wenergy=1.0, wforce=100.0, wexchange=1.0, short_weight=5.0, cutoff=4.5, mag_alpha=0.5):
         self.we = wenergy
         self.wf = wforce
         self.wx = wexchange
