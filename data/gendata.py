@@ -63,14 +63,21 @@ class DataGenerator:
         exchange = True
         #  Parse TB2J outputs for this strain
         tb2jpath = os.path.join(wkdir, stndir, "tmp/TB2J_results/Multibinit", "exchange.xml")
-        if not os.path.exists(tb2jpath):
-            logger.warning(f"{self.lprefix}TB2J output file not found for {stndir} at {tb2jpath}. Skipping TB2J parsing...")
-            cr_edges, exchangejs = torch.zeros((2, 1), dtype=torch.long), torch.zeros((1, 1), dtype=torch.float32) 
-            cr_shifts, cr_edgedists = torch.zeros((1, 3), dtype=torch.int64), torch.zeros((1,), dtype=torch.float32)
-            exchange = False
-        else:
-            cr_edges, exchangejs, cr_shifts, cr_edgedists = self.egraph.graph(tb2jpath, self.rcut, atomsout)
+        # if not os.path.exists(tb2jpath):
+        #     logger.warning(f"{self.lprefix}TB2J output file not found for {stndir} at {tb2jpath}. Skipping TB2J parsing...")
+        #     cr_edges, exchangejs = torch.zeros((2, 1), dtype=torch.long), torch.zeros((1, 1), dtype=torch.float32) 
+        #     cr_shifts, cr_edgedists = torch.zeros((1, 3), dtype=torch.int64), torch.zeros((1,), dtype=torch.float32)
+        #     exchange = False
+        # else:
+        cr_edges, exchangejs, cr_shifts, cr_edgedists, cr_cr_angles, avg_cr_min, avg_cr_max = self.egraph.graph(tb2jpath, self.rcut, atomsout)
             # self.logger.info(f"Cr Edges Shape: {cr_edges.shape}, Exchange J Shape: {exchangejs.shape}, Edge Shifts Shape: {cr_shifts.shape}, Edge Distances Shape: {cr_edgedists.shape}")
+
+        if abs(exchangejs).max() > 2.0:
+            # logger.warning(f"{self.lprefix}Warning: Extremely large exchange values detected for {stndir}. Max |J|: {torch.max(torch.abs(exchangejs)):.4f} meV. Skipping this sample.")
+            return None, None
+
+        for k, dist in enumerate(cr_edgedists):
+            logger.info(f"Distance: {dist.squeeze().cpu().numpy():.4f}, Exchange J: {exchangejs.squeeze()[k].cpu().numpy():.4f} meV, Cr-Cr Angle: {180/torch.pi*torch.acos(cr_cr_angles.squeeze()[k].cpu()).numpy():.2f} degrees, Cr-I Min: {avg_cr_min.squeeze()[k].cpu().numpy():.4f} Å, Cr-I Max: {avg_cr_max.squeeze()[k].cpu().numpy():.4f} Å")
 
         data = Data(
             z=z,
@@ -83,6 +90,9 @@ class DataGenerator:
             cr_edge_index=cr_edges,
             cr_edge_shift=cr_shifts,
             cr_edge_dist=cr_edgedists,
+            cr_cr_angles=cr_cr_angles,
+            avg_cr_min=avg_cr_min,
+            avg_cr_max=avg_cr_max,
             y_exchange=exchangejs,
             exchange = torch.tensor([exchange], dtype=torch.bool).view(-1, 1)
         )
@@ -125,9 +135,9 @@ if __name__ == "__main__":
     from logger import getlogger
     logger = getlogger()
 
-    RCUT = 7.0    
-    datasetdir = "./DataSets/MixedDataset/"
-    datasetpath = f"./DataSets/GNN/Mixed-Dataset-Rattled-Rcut_{RCUT:.1f}.pth"
+    RCUT = 4.5    
+    datasetdir = "./DataSets/ExchangeDataset-Normal/"
+    datasetpath = f"./DataSets/GNN/Rattled-Exchange-Normal-Stripped-Rcut_{RCUT:.1f}.pth"
 
     dirpath = Path(datasetdir)
     dirlist = [d.name for d in dirpath.iterdir() if not d.name.startswith(".") and d.is_dir()]
@@ -155,8 +165,6 @@ if __name__ == "__main__":
 
     logger.info(f"Number of strain types: {len(stntypes)}")
     logger.info(f"Total samples: {numsamples}")
-    logger.info(f"Strains: {strains[0]}")
-    logger.info(f"Rattle indices: {rattleidxs[0]}")
 
     datagen = DataGenerator(RCUT, stntypes=stntypes, strains=strains, phase='FM')
 
