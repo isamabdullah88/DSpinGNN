@@ -46,6 +46,10 @@ class Trainer:
             # Instantly update metrics
             self.train_metrics.update_loss(loss, losse, lossf, lossx, batch.num_graphs)
 
+            self.logger.info(f"[Training]")
+            self.logger.info(f"Sum of absolute exchange values greater than 1.0 in batch: {torch.sum(torch.abs(batch.y_exchange[torch.abs(batch.y_exchange) > 1.0])).item():.4f}")
+            self.logger.info(f"Sum of absolute predicted exchange values greater than 1.0 in batch: {torch.sum(torch.abs(exchange[torch.abs(exchange) > 1.0])).item():.4f}")
+
         metrics = self.train_metrics.get_averages()
 
         wandb.log({
@@ -73,6 +77,10 @@ class Trainer:
                 forces = calcforce(energy, batch.pos)
 
                 loss, losse, lossf, lossx = self.criterion(energy, forces, exchange, batch)
+
+                # self.logger.info(f"[Validation]")
+                # self.logger.info(f"Sum of absolute exchange values greater than 1.0 in batch: {torch.sum(torch.abs(batch.y_exchange[torch.abs(batch.y_exchange) > 1.0])).item():.4f}")
+                # self.logger.info(f"Sum of absolute predicted values greater than 1.0 in batch: {torch.sum(torch.abs(exchange[torch.abs(exchange) > 1.0])).item():.4f}")
                 
                 # Update all metrics cleanly
                 self.val_metrics.update_loss(loss, losse, lossf, lossx, batch.num_graphs)
@@ -80,13 +88,13 @@ class Trainer:
 
         metrics = self.val_metrics.get_averages()
 
-        self.logger.info("[TRAIN] RESULTS (Validation Set)")
-        self.logger.info(f"[TRAIN] Val Loss (MSE):     {metrics['loss']:.5f}")
-        self.logger.info(f"[TRAIN] Val Energy (MAE):   {metrics['maee']:.5f} eV/atom")
-        self.logger.info(f"[TRAIN] Val Forces (MAE):   {metrics['maef']:.5f} eV/A")
-        self.logger.info(f"[TRAIN] Val Exchange (MAE): {metrics['maex']:.5f}")
-        self.logger.info(f"[TRAIN] Val Exchange (MAE) - Short Range: {metrics['maex1']:.5f}")
-        self.logger.info(f"[TRAIN] Val Exchange (MAE) - Long Range: {metrics['maex2']:.5f}")
+        self.logger.info("[VALIDATION] RESULTS (Validation Set)")
+        self.logger.info(f"[VALIDATION] Val Loss (MSE):     {metrics['loss']:.5f}")
+        self.logger.info(f"[VALIDATION] Val Energy (MAE):   {metrics['maee']:.5f} eV/atom")
+        self.logger.info(f"[VALIDATION] Val Forces (MAE):   {metrics['maef']:.5f} eV/A")
+        self.logger.info(f"[VALIDATION] Val Exchange (MAE): {metrics['maex']:.5f}")
+        self.logger.info(f"[VALIDATION] Val Exchange (MAE) - Short Range: {metrics['maex1']:.5f}")
+        self.logger.info(f"[VALIDATION] Val Exchange (MAE) - Long Range: {metrics['maex2']:.5f}")
 
         wandb.log({
             "Test/MAE-Exchange": metrics["maex"],
@@ -121,7 +129,7 @@ class Trainer:
             
             epochloss = self.train_epoch(epoch)
             
-            if (epoch + 1) % 20 == 0:
+            if (epoch + 1) % 1 == 0:
                 val_loss = self.validate_epoch(epoch)
                 
                 if self.scheduler is not None:
