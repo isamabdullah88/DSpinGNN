@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 
 class MultiTaskLoss:
-    def __init__(self, wenergy=1.0, wforce=100.0, wexchange=1.0, short_weight=5.0, cutoff=4.5, mag_alpha=0.5):
+    def __init__(self, wenergy=1.0, wforce=100.0, wexchange=1.0, short_weight=2.0, cutoff=4.5, mag_alpha=0.5):
         self.we = wenergy
         self.wf = wforce
         self.wx = wexchange
@@ -11,12 +11,13 @@ class MultiTaskLoss:
         self.mag_alpha = mag_alpha
 
     def __call__(self, epred, fpred, xpred, batch):
-        losse = F.mse_loss(epred.view(-1), batch.y_energy.view(-1))
-        lossf = F.mse_loss(fpred, batch.y_forces)
+        # losse = F.mse_loss(epred.view(-1), batch.y_energy.view(-1))
+        # lossf = F.mse_loss(fpred, batch.y_forces)
 
         # 1. Base per-edge exchange loss
-        base_lossx = F.mse_loss(xpred.view(-1), batch.y_exchange.view(-1), reduction='none')
+        baselossx = F.mse_loss(xpred.view(-1), batch.y_exchange.view(-1), reduction='mean')
 
+        """
         # 2. Distance Weights
         distances = batch.cr_edge_dist.view(-1)
         
@@ -31,8 +32,13 @@ class MultiTaskLoss:
         total_weights = distance_weights * magnitude_weights
 
         # 5. Apply and average
-        lossx = torch.mean(total_weights * base_lossx)
+        lossx = torch.mean(total_weights * baselossx)
+        """
             
-        loss_tot = (self.we * losse) + (self.wf * lossf) + (self.wx * lossx)
+        # loss_tot = (self.we * losse) + (self.wf * lossf) + (self.wx * baselossx)
+        losse = torch.tensor(0.0, device=epred.device)  # Placeholder for energy loss
+        lossf = torch.tensor(0.0, device=fpred.device)  # Placeholder for force loss
+        lossx = baselossx  # Use the base exchange loss as the final exchange loss for now
+        loss_tot = lossx
         
         return loss_tot, losse, lossf, lossx
