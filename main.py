@@ -61,7 +61,7 @@ def main(args):
     # Optimizer & Loss
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', factor=0.75, patience=100, min_lr=1e-4, verbose=True
+        optimizer, mode='min', factor=0.75, patience=200, min_lr=1e-3, verbose=True
     )
 
     # Loss function with specified weights for each task
