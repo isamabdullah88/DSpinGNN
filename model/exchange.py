@@ -5,7 +5,7 @@ from e3nn import o3
 from .embedding import Radial, ConstrainedRadialEmbedding
     
 class ExchangeBlock(nn.Module):
-    def __init__(self, l0dim, l1dim, l2dim, numscalars=16, numbasis=16):
+    def __init__(self, l0dim, l1dim, l2dim, numscalars=32, numbasis=32):
         super(ExchangeBlock, self).__init__()
 
         irrepsin = o3.Irreps(f"{l0dim}x0e + {l1dim}x1o + {l2dim}x2e")
@@ -20,7 +20,7 @@ class ExchangeBlock(nn.Module):
         self.normlayer = nn.LayerNorm(numscalars)
 
         # self.rembedding = ConstrainedRadialEmbedding(min_dist=3.5, max_dist=4.1, num_basis=numbasis)
-        self.rembedding = Radial(numbasis, numbasis, hidden_dim=16)
+        self.rembedding = Radial(numbasis, numbasis, hidden_dim=64)
 
         # self.distfilter = nn.Sequential(
         #     nn.Linear(numbasis, 512),
@@ -30,9 +30,9 @@ class ExchangeBlock(nn.Module):
 
         # UPGRADE: MLP now takes numscalars + 1 (for the explicit exponential distance feature)
         self.mlp_in = nn.Sequential(
-            nn.Linear(numscalars + numbasis + 3, 32),
+            nn.Linear(numscalars + numbasis + 3, 64),
             nn.SiLU(),
-            nn.Linear(32, 32),
+            nn.Linear(64, 64),
             nn.SiLU()
         )
         
@@ -45,7 +45,7 @@ class ExchangeBlock(nn.Module):
         # nn.init.zeros_(self.mlp_res[-1].weight)
         # nn.init.zeros_(self.mlp_res[-1].bias)
         
-        self.mlp_out = nn.Linear(32, 1)
+        self.mlp_out = nn.Linear(64, 1)
 
     def forward(self, nodes, batch):
         src, dst = batch.cr_edge_index
