@@ -118,7 +118,7 @@ def getdata(datasetpath, batch_size=32):
     meanj = jvals.mean()
     logger.info(f"{logprefix}Shifted Dataset Mean Exchange J: {meanj:.6f} meV")
     
-    trsize = int(1.0 * len(datalist))
+    trsize = int(0.85 * len(datalist))
     vsize = len(datalist) - trsize
     # ttsize = len(datalist) - trsize - vsize
     ttsize = 0
@@ -145,7 +145,7 @@ if __name__ == "__main__":
     from logger import getlogger
     logger = getlogger()
     
-    trainloader, valloader, testloader = getdata("./DataSets/GNN/Rattled-Exchange-Biaxial-Stripped-Rcut_4.5.pth", 32)
+    trainloader, valloader, testloader = getdata("./DataSets/GNN/Rattled-Exchange-Full-Normal-Rcut_4.5.pth", 32)
 
     plot_j_vs_distance(trainloader)
 
