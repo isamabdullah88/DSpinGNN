@@ -30,7 +30,7 @@ class ExchangeBlock(nn.Module):
 
         # UPGRADE: MLP now takes numscalars + 1 (for the explicit exponential distance feature)
         self.mlp_in = nn.Sequential(
-            nn.Linear(numscalars + numbasis, 32),
+            nn.Linear(numscalars + numbasis + 3, 32),
             nn.SiLU(),
             nn.Linear(32, 32),
             nn.SiLU()
@@ -82,21 +82,21 @@ class ExchangeBlock(nn.Module):
         
         
 
-        # angle_feat = batch.cr_cr_angles.view(-1, 1)
-        # cri_min_feat = batch.avg_cr_min.view(-1, 1)
-        # cri_max_feat = batch.avg_cr_max.view(-1, 1)
+        angle_feat = batch.cr_cr_angles.view(-1, 1)
+        cri_min_feat = batch.avg_cr_min.view(-1, 1)
+        cri_max_feat = batch.avg_cr_max.view(-1, 1)
 
         # 3. The Ultimate Physics Vector
         # This 53-dimensional vector contains every piece of geometric 
         # information that dictates magnetic exchange.
-        # edge_features = torch.cat([
-        #     distembedding, 
-        #     angle_feat, 
-        #     cri_min_feat, 
-        #     cri_max_feat
-        # ], dim=-1)
+        edge_features = torch.cat([
+            distembedding, 
+            angle_feat, 
+            cri_min_feat, 
+            cri_max_feat
+        ], dim=-1)
 
-        regulated_feat = torch.cat([mixednorm, distembedding], dim=-1)
+        regulated_feat = torch.cat([mixednorm, edge_features], dim=-1)
         # print(f"Regulated features: {regulated_feat.squeeze().cpu()}")
 
         # Concatenate the physics feature to the network features
