@@ -69,7 +69,7 @@ class Trainer:
         self.val_metrics.reset()
         
         with torch.enable_grad(): 
-            for batch in self.train_loader:
+            for batch in self.val_loader:
                 batch = batch.to(self.device)
                 batch.pos.requires_grad_(True)
                 
