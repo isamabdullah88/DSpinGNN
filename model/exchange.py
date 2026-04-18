@@ -2,50 +2,58 @@ import torch
 import torch.nn as nn
 from e3nn import o3
 
-from .embedding import Radial, ConstrainedRadialEmbedding
+from .embedding import Radial, CosineAngleEmbedding
     
 class ExchangeBlock(nn.Module):
-    def __init__(self, l0dim, l1dim, l2dim, numscalars=128, numbasis=128):
+    def __init__(self, l0dim, l1dim, l2dim, numscalars=64, numbasis=256):
         super(ExchangeBlock, self).__init__()
 
         irrepsin = o3.Irreps(f"{l0dim}x0e + {l1dim}x1o + {l2dim}x2e")
         irrepsout = o3.Irreps(f"{numscalars}x0e")
 
-        self.tp = o3.FullyConnectedTensorProduct(
-            irreps_in1=irrepsin, 
-            irreps_in2=irrepsin, 
-            irreps_out=irrepsout
-        )
+        # self.tp = o3.FullyConnectedTensorProduct(
+        #     irreps_in1=irrepsin, 
+        #     irreps_in2=irrepsin, 
+        #     irreps_out=irrepsout
+        # )
 
-        self.normlayer = nn.LayerNorm(numscalars)
+        # self.normlayer = nn.LayerNorm(numscalars)
 
+        self.hidden_dim = 512
+        self.numbasis = numbasis
+        self.cosinebasis = 256
         # self.rembedding = ConstrainedRadialEmbedding(min_dist=3.5, max_dist=4.1, num_basis=numbasis)
-        self.rembedding = Radial(numbasis, numbasis, hidden_dim=128)
+        self.rembedding = Radial(self.numbasis, min_dist=3.65, rcut=4.35)
+        self.bondembedding = Radial(indim=numbasis, min_dist=2.55, rcut=3.00)
+        self.cosembedding = CosineAngleEmbedding(self.cosinebasis, min_cos=-0.14, max_cos=0.04, gamma=10.0)
 
         # self.distfilter = nn.Sequential(
         #     nn.Linear(numbasis, 512),
         #     nn.SiLU(),
         #     nn.Linear(512, numscalars)
         # )
+        self.normlayer = nn.LayerNorm(5*self.numbasis + self.cosinebasis)  # Normalizing the combined feature vector
 
         # UPGRADE: MLP now takes numscalars + 1 (for the explicit exponential distance feature)
         self.mlp_in = nn.Sequential(
-            nn.Linear(numscalars + numbasis + 3, 512),
+            nn.Linear(5*self.numbasis + self.cosinebasis, 1024),
+            # nn.Dropout(0.2),
             nn.SiLU(),
-            nn.Linear(512, 512),
+            nn.Linear(1024, 1024),
+            # nn.Dropout(0.2),
             nn.SiLU()
         )
         
         # UPGRADE: Residual block
-        # self.mlp_res = nn.Sequential(
-        #     nn.Linear(numscalars, 20),
-        #     nn.SiLU()
-        # )
-        # # # FIX: Zero-initialize the final layer of the residual block
+        self.mlp_res = nn.Sequential(
+            nn.Linear(1024, 1024),
+            nn.SiLU()
+        )
+        # # FIX: Zero-initialize the final layer of the residual block
         # nn.init.zeros_(self.mlp_res[-1].weight)
         # nn.init.zeros_(self.mlp_res[-1].bias)
         
-        self.mlp_out = nn.Linear(512, 1)
+        self.mlp_out = nn.Linear(1024, 1)
 
     def forward(self, nodes, batch):
         src, dst = batch.cr_edge_index
@@ -65,12 +73,12 @@ class ExchangeBlock(nn.Module):
         # ==========================================
         # FIX 1: Explicit Permutation Symmetry
         # ==========================================
-        mixed = self.tp(nodes[src], nodes[dst])
+        # mixed = self.tp(nodes[src], nodes[dst])
         # mixed_backward = self.tp(nodes[dst], nodes[src])
         # mixed = 0.5 * (mixed_forward + mixed_backward)
         # print(f"Mixed features: {mixed.squeeze().cpu()}")
 
-        mixednorm = self.normlayer(mixed)
+        # mixednorm = self.normlayer(mixed)
         # print(f"Normalized mixed features: {mixednorm.squeeze().cpu()}")
 
         # Explicit distance feature that decays with distance, providing a strong inductive bias for physical interactions
@@ -79,41 +87,49 @@ class ExchangeBlock(nn.Module):
 
         distembedding = self.rembedding(dist)  # Inverse distance embedding
         # distfilter = self.distfilter(distembedding)
-        
-        
+        cosembedding = self.cosembedding(batch.cr_cr_angles.view(-1, 1))
+        # minbondembedding = self.bondembedding(batch.avg_cr_min.view(-1, 1))
+        # maxbondembedding = self.bondembedding(batch.avg_cr_max.view(-1, 1))
+        cri_bondembedding1 = self.bondembedding(batch.cr_i_bonds[:, 0].view(-1, 1))
+        cri_bondembedding2 = self.bondembedding(batch.cr_i_bonds[:, 1].view(-1, 1))
+        cri_bondembedding3 = self.bondembedding(batch.cr_i_bonds[:, 2].view(-1, 1))
+        cri_bondembedding4 = self.bondembedding(batch.cr_i_bonds[:, 3].view(-1, 1))
 
-        angle_feat = batch.cr_cr_angles.view(-1, 1)
-        cri_min_feat = batch.avg_cr_min.view(-1, 1)
-        cri_max_feat = batch.avg_cr_max.view(-1, 1)
+        normedembeddings = self.normlayer(torch.cat([distembedding, cosembedding, cri_bondembedding1, cri_bondembedding2, cri_bondembedding3, cri_bondembedding4], dim=-1))
+
+        cosanglesstr = "Cosine angles:\n"
+        for c in batch.cr_cr_angles.view(-1).squeeze().cpu().numpy():
+            cosanglesstr += f" {c:.6f}"
+
+        # print(f"Cosine angle values: {cosanglesstr}")
+        
+        cosembeddingstr = "Cosine angle embedding values:\n"
+        for ce in cosembedding.view(-1, self.cosinebasis).detach().cpu().numpy():
+            cosembeddingstr += f" {torch.argmax(torch.tensor(ce)).item()}"  # Index of the most activated basis function
+
+        # print(f"Cosine angle embedding values: {cosembeddingstr}")
+
+        # angle_feat = batch.cr_cr_angles.view(-1, 1)
+        # cri_min_feat = batch.avg_cr_min.view(-1, 1)
+        # cri_max_feat = batch.avg_cr_max.view(-1, 1)
 
         # 3. The Ultimate Physics Vector
         # This 53-dimensional vector contains every piece of geometric 
         # information that dictates magnetic exchange.
-        edge_features = torch.cat([
-            distembedding, 
-            angle_feat, 
-            cri_min_feat, 
-            cri_max_feat
-        ], dim=-1)
+        # edge_features = torch.cat([
+        #     distembedding, 
+        #     cosembedding, 
+        #     minbondembedding,
+        #     maxbondembedding
+        # ], dim=-1)
 
-        regulated_feat = torch.cat([mixednorm, edge_features], dim=-1)
-        # print(f"Regulated features: {regulated_feat.squeeze().cpu()}")
-
-        # Concatenate the physics feature to the network features
-        # mlp_input = torch.cat(regulated_feat, dim=-1)
-
-        # ==========================================
-        # FIX 3: Residual MLP
-        # ==========================================
-        h1 = self.mlp_in(regulated_feat)
-        # print(f"MLP output features (before residual): {h1.squeeze().cpu()}")
-
-        # h2 = self.mlp_res(mixednorm)
-        # print(f"Residual features: {h2.squeeze().cpu()}")
-        # hout = h1 + h2  # Residual connection
-        # print(f"MLP output features (after residual): {hout.squeeze().cpu()}")
+        # regulated_feat = torch.cat([mixednorm, edge_features], dim=-1)
         
-        outx = self.mlp_out(h1)
+        h1 = self.mlp_in(normedembeddings)
+
+        hout = h1 + self.mlp_res(h1)
+        
+        outx = self.mlp_out(hout)
 
         """
         diststr = "Distances:\n"
@@ -122,7 +138,7 @@ class ExchangeBlock(nn.Module):
         # print(diststr)
 
         embeddingstr = "Distance embedding values:\n"
-        for ds in distembedding.view(-1, 50).detach().cpu().numpy():
+        for ds in distembedding.view(-1, self.numbasis).detach().cpu().numpy():
             embeddingstr += f" {torch.argmax(torch.tensor(ds)).item()}"  # Index of the most activated basis function
         # print(embeddingstr)
 
@@ -137,4 +153,4 @@ class ExchangeBlock(nn.Module):
         # print(predstr)
         """
 
-        return outx
+        return outx.view(-1)

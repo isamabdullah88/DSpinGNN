@@ -11,8 +11,10 @@ class MultiTaskLoss:
         self.mag_alpha = mag_alpha
 
     def __call__(self, epred, fpred, xpred, batch):
-        losse = F.mse_loss(epred.view(-1), batch.y_energy.view(-1))
-        lossf = F.mse_loss(fpred, batch.y_forces)
+        # losse = F.mse_loss(epred.view(-1), batch.y_energy.view(-1))
+        # lossf = F.mse_loss(fpred, batch.y_forces)
+        losse = torch.tensor(0.0, device=epred.device)  # Placeholder energy loss for now
+        lossf = torch.tensor(0.0, device=fpred.device)  #
 
         # 1. Base per-edge exchange loss
         baselossx = F.mse_loss(xpred.view(-1), batch.y_exchange.view(-1), reduction='mean')
