@@ -24,6 +24,26 @@ class AtomEmbedding(nn.Module):
         return linear
     
 
+# ==========================================
+# NEW: Safe Gaussian Smearing Embedding
+# Perfectly handles Z-scored data (negative, zero, and positive)
+# ==========================================
+class GaussianSmearing(nn.Module):
+    def __init__(self, start=-3.0, stop=3.0, num_gaussians=64):
+        super(GaussianSmearing, self).__init__()
+        # Create 'num_gaussians' centers evenly spaced between start and stop
+        offset = torch.linspace(start, stop, num_gaussians)
+        
+        # Calculate the width (gamma) of the Gaussians so they overlap smoothly
+        self.coeff = -0.5 / (offset[1] - offset[0]).item()**2
+        self.register_buffer('offset', offset)
+
+    def forward(self, dist):
+        dist = dist.view(-1, 1) - self.offset.view(1, -1)
+        return torch.exp(self.coeff * torch.pow(dist, 2))
+
+    
+
 
 # class Radial(nn.Module):
 #     # Added min_dist to the initialization!
