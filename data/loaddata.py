@@ -156,6 +156,59 @@ def plot_j_vs_distance(dataloader):
     plt.savefig("j_vs_distance_distribution.png", dpi=300, bbox_inches='tight')
     # plt.show()
 
+import torch
+import numpy as np
+from sklearn.model_selection import train_test_split
+
+# Assuming 'dataset' is your list of PyTorch Geometric Data objects
+# dataset = [data1, data2, data3, ...]
+
+def create_stratified_split(dataset, test_size=0.15, random_state=42):
+    """
+    Splits a graph dataset ensuring that crystals with extreme J values
+    are proportionally distributed between train and validation sets.
+    """
+    graph_labels = []
+    
+    # 1. Label each crystal based on its physics
+    for data in dataset:
+        # Extract the J values for this specific crystal
+        j_values = data.y_exchange.view(-1)
+        
+        # Check if ANY bond in this crystal is outside the [-3, 3] range
+        has_extreme = torch.any((j_values < -2.5) | (j_values > 2.5)).item()
+        
+        if has_extreme:
+            graph_labels.append(1)  # Class 1: Contains extreme rattling
+        else:
+            graph_labels.append(0)  # Class 0: Standard bulk behavior
+
+    # 2. Perform the Stratified Split
+    # The 'stratify=graph_labels' argument forces the exact same ratio of 
+    # Class 0 to Class 1 in both the training and validation sets.
+    train_dataset, val_dataset = train_test_split(
+        dataset, 
+        test_size=test_size, 
+        random_state=random_state, 
+        stratify=graph_labels
+    )
+    
+    # Optional: Print out the stats to verify it worked perfectly
+    train_extremes = sum([1 for data in train_dataset if torch.any((data.y_exchange < -3.0) | (data.y_exchange > 3.0))])
+    val_extremes = sum([1 for data in val_dataset if torch.any((data.y_exchange < -3.0) | (data.y_exchange > 3.0))])
+    
+    print(f"--- Split Complete ---")
+    print(f"Total Crystals: {len(dataset)}")
+    print(f"Train Set: {len(train_dataset)} crystals ({train_extremes} contain extreme J values)")
+    print(f"Val Set:   {len(val_dataset)} crystals ({val_extremes} contain extreme J values)")
+    
+    return train_dataset, val_dataset
+
+# Usage:
+# train_data, val_data = create_stratified_split(dataset, test_size=0.15)
+# train_loader = DataLoader(train_data, batch_size=128, shuffle=True, ...)
+# val_loader = DataLoader(val_data, batch_size=128, shuffle=False, ...)
+
 def getdata(datasetpath, batch_size=32):
     logprefix = "[DATA] "
     logger = logging.getLogger(__name__)
@@ -194,7 +247,8 @@ def getdata(datasetpath, batch_size=32):
 
     # trainlist, valist, testlist = random_split(datalist, [trsize, vsize, ttsize],
     #                            generator=generator)
-    trainlist, valist = datalist['train'], datalist['val']
+    dataset = datalist['train'] + datalist['val']
+    trainlist, valist = create_stratified_split(dataset, test_size=0.15, random_state=42)
     testlist = []  # No test set for now, but you can create one later
 
     # Assuming 'all_samples' is your list of PyG graphs
@@ -219,7 +273,7 @@ if __name__ == "__main__":
     from logger import getlogger
     logger = getlogger()
     
-    trainloader, valloader, testloader = getdata("./DataSets/GNN/Exchange-Relaxed-Striped_2-Rcut_4.5.pth", 32)
+    trainloader, valloader, testloader = getdata("./DataSets/GNN/Exchange-Full-Mixed-Extreme-NoStripped-Pruned_-3.0_3.0-Rcut_4.5.pth", 32)
 
     plot_j_vs_distance(trainloader)
     plot_j_vs_distance(valloader)
