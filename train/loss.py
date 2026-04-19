@@ -2,42 +2,41 @@ import torch
 import torch.nn.functional as F
 
 class MultiTaskLoss:
-    def __init__(self, wenergy=1.0, wforce=100.0, wexchange=1.0, short_weight=2.0, cutoff=4.5, mag_alpha=0.5):
+    def __init__(self, wenergy=1.0, wforce=100.0, wexchange=1.0, short_weight=2.0, cutoff=4.5):
         self.we = wenergy
         self.wf = wforce
         self.wx = wexchange
         self.short_weight = short_weight
         self.cutoff = cutoff
-        self.mag_alpha = mag_alpha
+        self.mag_alpha = 50.5
 
     def __call__(self, epred, fpred, xpred, batch):
-        # losse = F.mse_loss(epred.view(-1), batch.y_energy.view(-1))
-        # lossf = F.mse_loss(fpred, batch.y_forces)
         losse = torch.tensor(0.0, device=epred.device)  # Placeholder energy loss for now
-        lossf = torch.tensor(0.0, device=fpred.device)  #
+        lossf = torch.tensor(0.0, device=fpred.device)  # Placeholder force loss
+
+        y_true = batch.y_exchange.view(-1)
+        y_pred = xpred.view(-1)
 
         # 1. Base per-edge exchange loss
-        baselossx = F.mse_loss(xpred.view(-1), batch.y_exchange.view(-1), reduction='mean')
+        # CRITICAL: reduction='none' returns a tensor of shape [Total_edges]
+        # unreduced_lossx = F.huber_loss(y_pred, y_true, delta=0.5, reduction='none')
 
-        """
-        # 2. Distance Weights
-        distances = batch.cr_edge_dist.view(-1)
-        
-        distance_weights = torch.where(distances < self.cutoff, 
-                                       torch.tensor(self.short_weight, dtype=xpred.dtype, device=xpred.device), 
-                                       torch.tensor(1.0, dtype=xpred.dtype, device=xpred.device))
+        # 2. Magnitude Weights (Targeting the extreme values)
+        # E.g., if true J = 0.0, weight is 1.0. 
+        # If true J = 4.0 and alpha = 0.5, weight is 1.0 + (0.5 * 4) = 3.0.
+        # magnitude_weights = 1.0 + (self.mag_alpha * torch.abs(y_true))
 
-        # 3. Magnitude Weights (Targeting the extreme phase-transition values)
-        magnitude_weights = 1.0 + (self.mag_alpha * torch.abs(batch.y_exchange.view(-1)))
+        # Optional: Add your distance weights back in here if you want them!
+        # distances = batch.cr_edge_dist.view(-1)
+        # distance_weights = torch.where(distances < self.cutoff, 
+        #                                torch.tensor(self.short_weight, dtype=xpred.dtype, device=xpred.device), 
+        #                                torch.tensor(1.0, dtype=xpred.dtype, device=xpred.device))
+        # total_weights = magnitude_weights * distance_weights
 
-        # 4. Combine the priors (Max multiplier will be around 5.0 * 6.0 = 30x)
-        total_weights = distance_weights * magnitude_weights
-
-        # 5. Apply and average
-        lossx = torch.mean(total_weights * baselossx)
-        """
-        lossx = baselossx
+        # 3. Apply the per-edge weights and then take the mean
+        # lossx = torch.mean(magnitude_weights * unreduced_lossx)
+        lossx = F.l1_loss(y_pred, y_true, reduction='mean')
             
-        loss_tot = (self.we * losse) + (self.wf * lossf) + (self.wx * baselossx)
+        loss_tot = (self.we * losse) + (self.wf * lossf) + (self.wx * lossx)
         
         return loss_tot, losse, lossf, lossx
