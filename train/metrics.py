@@ -1,9 +1,11 @@
 import torch
+import logging
 
 class MetricsTracker:
     def __init__(self, device):
         self.device = device
         self.reset()
+        self.logger = logging.getLogger(__name__)
 
     def reset(self):
         # Keep everything on the GPU as zero-tensors
@@ -17,9 +19,12 @@ class MetricsTracker:
         self.maex = torch.tensor(0.0, device=self.device)
         self.maex1 = torch.tensor(0.0, device=self.device)
         self.maex2 = torch.tensor(0.0, device=self.device)
+        self.maexmini = torch.tensor(0.0, device=self.device)
+        self.maexrest = torch.tensor(0.0, device=self.device)
 
         # Counters
         self.graphs, self.atoms, self.edges, self.edges1, self.edges2 = 0, 0, 0, 0, 0
+        self.edgesmini, self.edgesrest = 0, 0
 
     def update_loss(self, loss, losse, lossf, lossx, num_graphs):
         self.graphs += num_graphs
@@ -47,6 +52,17 @@ class MetricsTracker:
         self.maex1 += torch.abs(exchange[j1mask].detach().view(-1) - batch.y_exchange[j1mask].view(-1)).sum()
         self.maex2 += torch.abs(exchange[j2mask].detach().view(-1) - batch.y_exchange[j2mask].view(-1)).sum()
 
+        # self.logger.info(f"Y-exchange shape: {batch.y_exchange.shape}")
+        jmask = ((batch.y_exchange.view(-1, 6) > -3.0) & (batch.y_exchange.view(-1, 6) < 3.0)).all(dim=1)
+        emask = jmask.unsqueeze(1).expand(-1, 6).reshape(-1)
+        self.maexmini += torch.abs(exchange[emask].detach().view(-1) - batch.y_exchange[emask].view(-1)).sum()
+        self.edgesmini += emask.sum().item()
+
+        rmask = ~emask
+        self.maexrest = torch.abs(exchange[rmask].detach().view(-1) - batch.y_exchange[rmask].view(-1)).sum()
+        self.edgesrest += rmask.sum().item()
+
+
     def get_averages(self):
         # Calculates averages and calls .item() EXACTLY ONCE at the end!
         return {
@@ -59,4 +75,6 @@ class MetricsTracker:
             "maex": (self.maex / self.edges).item() if self.edges > 0 else 0,
             "maex1": (self.maex1 / self.edges1).item() if self.edges1 > 0 else 0,
             "maex2": (self.maex2 / self.edges2).item() if self.edges2 > 0 else 0,
+            "maexmini": (self.maexmini / (self.edgesmini)).item() if self.edgesmini > 0 else 0,
+            "maexrest": (self.maexrest / (self.edgesrest)).item() if self.edgesrest > 0 else 0,
         }
