@@ -59,12 +59,12 @@ class Trainer:
             # self.logger.info(exchangecomparison_str)
 
         metrics = self.train_metrics.get_averages()
-        self.logger.info(f"[TRAINING] MAE-Exchange-MINI: {metrics['maexmini']:.5f}")
+        # self.logger.info(f"[TRAINING] MAE-Exchange-MINI: {metrics['maexmini']:.5f}")
 
         wandb.log({
             "Train/MAE-Exchange": metrics["maex"],
-            "Train/MAE-Exchange-Mini": metrics["maexmini"],
-            "Train/MAE-Exchange-Rest": metrics["maexrest"],
+            # "Train/MAE-Exchange-Mini": metrics["maexmini"],
+            # "Train/MAE-Exchange-Rest": metrics["maexrest"],
             "Train/train_loss": metrics["loss"],
             "Train/train_loss_energy": metrics["losse"],
             "Train/train_loss_forces": metrics["lossf"],
@@ -120,7 +120,7 @@ class Trainer:
             "Test/MAE-Exchange-Long": metrics["maex2"],
             "Test/MAE-Energy": metrics["maee"],
             "Test/MAE-Force": metrics["maef"],
-            "Test/MAE-Exchange-Mini": metrics["maexmini"],
+            # "Test/MAE-Exchange-Mini": metrics["maexmini"],
             "Test/Validation-Loss": metrics["loss"],
             "Test/Validation-Loss-Energy": metrics["losse"],
             "Test/Validation-Loss-Forces": metrics["lossf"],
