@@ -33,6 +33,8 @@ class Trainer:
         for k, batch in enumerate(self.train_loader):
             batch = batch.to(self.device)
             batch.pos.requires_grad_(True)
+
+            batch.pos = batch.pos + torch.randn_like(batch.pos) * 0.005
             
             self.optimizer.zero_grad()
             
@@ -47,19 +49,22 @@ class Trainer:
             self.train_metrics.update_loss(loss, losse, lossf, lossx, batch.num_graphs)
             self.train_metrics.update_mae(energy, forces, exchange, batch)
 
-            self.logger.info(f"[Training]")
-            self.logger.info(f"Sum of absolute exchange values in batch: {torch.sum(torch.abs(batch.y_exchange)).item():.4f}")
-            self.logger.info(f"Sum of absolute predicted exchange values in batch: {torch.sum(torch.abs(exchange)).item():.4f}")
+            # self.logger.info(f"[Training]")
+            # self.logger.info(f"Sum of absolute exchange values in batch: {torch.sum(torch.abs(batch.y_exchange)).item():.4f}")
+            # self.logger.info(f"Sum of absolute predicted exchange values in batch: {torch.sum(torch.abs(exchange)).item():.4f}")
             # self.logger.info(f"All (True exchange, Predicted exchange) values from batch: {batch.y_exchange.view(-1)}, {exchange.view(-1)}")
-            exchangecomparison_str = "Exchange comparison (True vs Predicted):\n"
-            for true_j, pred_j in zip(batch.y_exchange.view(-1), exchange.view(-1)):
-                exchangecomparison_str += f" ({true_j.item():.4f} vs {pred_j.item():.4f}) "
-            self.logger.info(exchangecomparison_str)
+            # exchangecomparison_str = "Exchange comparison (True vs Predicted):\n"
+            # for true_j, pred_j in zip(batch.y_exchange.view(-1), exchange.view(-1)):
+            #     exchangecomparison_str += f" ({true_j.item():.4f} vs {pred_j.item():.4f}) "
+            # self.logger.info(exchangecomparison_str)
 
         metrics = self.train_metrics.get_averages()
+        self.logger.info(f"[TRAINING] MAE-Exchange-MINI: {metrics['maexmini']:.5f}")
 
         wandb.log({
             "Train/MAE-Exchange": metrics["maex"],
+            "Train/MAE-Exchange-Mini": metrics["maexmini"],
+            "Train/MAE-Exchange-Rest": metrics["maexrest"],
             "Train/train_loss": metrics["loss"],
             "Train/train_loss_energy": metrics["losse"],
             "Train/train_loss_forces": metrics["lossf"],
@@ -85,14 +90,14 @@ class Trainer:
 
                 loss, losse, lossf, lossx = self.criterion(energy, forces, exchange, batch)
 
-                self.logger.info(f"[Validation]")
-                self.logger.info(f"Sum of absolute exchange values in batch: {torch.sum(torch.abs(batch.y_exchange)).item():.4f}")
-                self.logger.info(f"Sum of absolute predicted exchange values in batch: {torch.sum(torch.abs(exchange)).item():.4f}")
+                # self.logger.info(f"[Validation]")
+                # self.logger.info(f"Sum of absolute exchange values in batch: {torch.sum(torch.abs(batch.y_exchange)).item():.4f}")
+                # self.logger.info(f"Sum of absolute predicted exchange values in batch: {torch.sum(torch.abs(exchange)).item():.4f}")
 
-                exchangecomparison_str = "Exchange comparison (True vs Predicted):\n"
-                for true_j, pred_j in zip(batch.y_exchange.view(-1), exchange.view(-1)):
-                    exchangecomparison_str += f" ({true_j.item():.4f} vs {pred_j.item():.4f}) "
-                self.logger.info(exchangecomparison_str)
+                # exchangecomparison_str = "Exchange comparison (True vs Predicted):\n"
+                # for true_j, pred_j in zip(batch.y_exchange.view(-1), exchange.view(-1)):
+                #     exchangecomparison_str += f" ({true_j.item():.4f} vs {pred_j.item():.4f}) "
+                # self.logger.info(exchangecomparison_str)
                 # self.logger.info(f"All (True exchange, Predicted exchange) values from batch: {batch.y_exchange.view(-1)}, {exchange.view(-1)}")
 
                 # Update all metrics cleanly
@@ -115,6 +120,7 @@ class Trainer:
             "Test/MAE-Exchange-Long": metrics["maex2"],
             "Test/MAE-Energy": metrics["maee"],
             "Test/MAE-Force": metrics["maef"],
+            "Test/MAE-Exchange-Mini": metrics["maexmini"],
             "Test/Validation-Loss": metrics["loss"],
             "Test/Validation-Loss-Energy": metrics["losse"],
             "Test/Validation-Loss-Forces": metrics["lossf"],
