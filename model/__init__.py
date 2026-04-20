@@ -1,1 +1,2 @@
-from .model import DSpinGNN, calcforce
+from .model import StructureGNN, calcforce
+from .exchange import ExchangeMLP

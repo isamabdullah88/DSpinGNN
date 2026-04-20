@@ -5,23 +5,21 @@ from torch_geometric.nn import global_add_pool
 from .embedding import AtomEmbedding
 from .interaction import InteractionBlock   
 from .outblock import OutputBlock
-from .exchange import ExchangeBlock
 
 
 def calcforce(energy, pos):
-    # ones = torch.ones_like(energy)
+    ones = torch.ones_like(energy)
 
-    # grads = torch.autograd.grad(outputs=energy, inputs=pos, grad_outputs=ones, create_graph=True,
-    #                             retain_graph=True, allow_unused=False)[0]
+    grads = torch.autograd.grad(outputs=energy, inputs=pos, grad_outputs=ones, create_graph=True,
+                                retain_graph=True, allow_unused=False)[0]
 
-    # forces = -grads
-    forces = torch.tensor([0.0], device=energy.device)  # Placeholder forces for now
+    forces = -grads
     return forces
 
 
-class DSpinGNN(nn.Module):
+class StructureGNN(nn.Module):
     def __init__(self):
-        super(DSpinGNN, self).__init__()
+        super(StructureGNN, self).__init__()
         
         self.numembeds = 118
         self.l0dim = 32
@@ -31,41 +29,28 @@ class DSpinGNN(nn.Module):
 
         self.atomembeds = AtomEmbedding(self.l0dim, self.l1dim, self.l2dim, self.numembeds)
 
-        # self.interaction_block1 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
+        self.interaction_block1 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
 
-        # self.interaction_block2 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
+        self.interaction_block2 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
         
-        # self.interaction_block3 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
-
-        # self.interaction_block4 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
-
-        # self.interaction_block5 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
-
-        self.exchange_block = ExchangeBlock(self.l0dim, self.l1dim, self.l2dim)
+        self.interaction_block3 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
 
         self.output_block = OutputBlock(self.l0dim, self.l1dim, self.l2dim)
 
-    def forward(self, batch) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, batch) -> torch.Tensor:
 
         nodes = self.atomembeds(batch.z)
 
-        # interacted1 = self.interaction_block1(nodes, batch)
+        interacted1 = self.interaction_block1(nodes, batch)
 
-        # interacted2 = self.interaction_block2(interacted1, batch)
+        interacted2 = self.interaction_block2(interacted1, batch)
 
-        # interacted3 = self.interaction_block3(interacted2, batch)
+        interacted3 = self.interaction_block3(interacted2, batch)
 
-        # interacted4 = self.interaction_block4(interacted3, batch)
+        output = self.output_block(interacted3, batch.z)
 
-        # interacted5 = self.interaction_block5(interacted4, batch)
-        
-        exchangej = self.exchange_block(nodes, batch)
+        energyt = global_add_pool(output, batch.batch)
 
-        # output = self.output_block(interacted2, batch.z)
-
-        # energyt = global_add_pool(output, batch.batch)
-        energyt = torch.tensor([0.0], device=nodes.device)  # Placeholder energy output for now
-
-        return energyt, exchangej
+        return energyt.view(-1)
     
 

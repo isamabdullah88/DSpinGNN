@@ -24,66 +24,53 @@ class AtomEmbedding(nn.Module):
         return linear
     
 
-# ==========================================
-# NEW: Safe Gaussian Smearing Embedding
-# Perfectly handles Z-scored data (negative, zero, and positive)
-# ==========================================
-class GaussianSmearing(nn.Module):
-    def __init__(self, start=-3.0, stop=3.0, num_gaussians=64):
-        super(GaussianSmearing, self).__init__()
-        # Create 'num_gaussians' centers evenly spaced between start and stop
-        offset = torch.linspace(start, stop, num_gaussians)
+class ChebyshevAngleSmearing(nn.Module):
+    def __init__(self, max_degree=5):
+        super(ChebyshevAngleSmearing, self).__init__()
+        self.max_degree = max_degree
+
+    def forward(self, x):
+        # x is already cos(theta), shape [N, 1].
         
-        # Calculate the width (gamma) of the Gaussians so they overlap smoothly
-        self.coeff = -0.5 / (offset[1] - offset[0]).item()**2
-        self.register_buffer('offset', offset)
-
-    def forward(self, dist):
-        dist = dist.view(-1, 1) - self.offset.view(1, -1)
-        return torch.exp(self.coeff * torch.pow(dist, 2))
-
-    
-
-
-# class Radial(nn.Module):
-#     # Added min_dist to the initialization!
-#     def __init__(self, indim, outdim, rcut=4.1, min_dist=3.5, hidden_dim=64):
-#         super(Radial, self).__init__()
-#         self.rcut = rcut
-#         self.min_dist = min_dist
-#         self.numbasis = indim
-
-#         self.model = nn.Sequential(
-#             nn.Linear(indim, hidden_dim),
-#             nn.SiLU(),
-#             nn.Linear(hidden_dim, outdim)
-#         )
-
-#     def forward(self, dist):
-#         # 1. THE FIX: Pack all Bessel functions strictly between min_dist and rcut!
-#         # This guarantees ultra-high resolution for the 1NN phase transition.
-#         bessel = emath.soft_one_hot_linspace(
-#             dist, 
-#             start=self.min_dist,  # Changed from 0.0
-#             end=self.rcut, 
-#             number=self.numbasis, 
-#             basis='bessel', 
-#             cutoff=True
-#         )
-
-#         distf = self.model(bessel)
-
-#         # 2. Smooth envelope to ensure it hits 0.0 at rcut
-#         # Assuming you have your polynomial_cutoff imported
-#         cutoff = ploynomial_cutoff(dist, self.rcut).unsqueeze(-1)
+        # CRITICAL SAFETY CLAMP: 
+        # Prevents floating point errors from pushing x beyond [-1, 1]
+        x = torch.clamp(x, min=-0.99999, max=0.99999)
         
-#         # 3. Masking out any impossible bonds that compress below min_dist
-#         # (Just in case you run extreme -15% strain simulations later)
-#         lower_mask = (dist >= self.min_dist).unsqueeze(-1).float()
+        # T_1(x) = x
+        t_basis = [x] 
+        
+        if self.max_degree >= 2:
+            # T_2(x) = 2x^2 - 1
+            t_basis.append(2 * x**2 - 1)
+            
+        # T_n(x) = 2x * T_{n-1}(x) - T_{n-2}(x)
+        for i in range(2, self.max_degree):
+            t_next = 2 * x * t_basis[-1] - t_basis[-2]
+            t_basis.append(t_next)
+            
+        # Concatenates into shape [N, max_degree]
+        return torch.cat(t_basis, dim=-1)
 
-#         distf = distf * cutoff * lower_mask
 
-#         return distf.view(-1, self.numbasis)
+class CosineSmearing(nn.Module):
+    def __init__(self, start, stop, num_basis=5):
+        super(CosineSmearing, self).__init__()
+        self.start = start
+        self.stop = stop
+        
+        # Frequencies: [1, 2, 3, ..., num_basis]
+        self.register_buffer('freqs', torch.arange(1, num_basis + 1).float())
+
+    def forward(self, x):
+        # 1. Normalize x to exactly [0.0, 1.0] based on the specific physical bounds
+        x_norm = (x - self.start) / (self.stop - self.start)
+        
+        # 2. Clamp it to prevent aliasing (wrapping around) from extreme outliers
+        x_norm = torch.clamp(x_norm, 0.0, 1.0)
+        
+        # 3. Scale to [0, pi] and compute the cosine features
+        return torch.cos(x_norm * torch.pi * self.freqs) 
+
 
 class Radial(nn.Module):
     def __init__(self, indim, rcut=4.5, min_dist=3.5):
@@ -114,32 +101,3 @@ class Radial(nn.Module):
         distf = bessel * cutoff * lower_mask
 
         return distf.view(-1, self.numbasis)
-    
-
-
-class CosineAngleEmbedding(nn.Module):
-    def __init__(self, indim, min_cos=-0.20, max_cos=0.10, gamma=10.0):
-        super().__init__()
-        self.numbasis = indim
-        
-        # 1. The High-Resolution Gaussian Expansion
-        offset = torch.linspace(min_cos, max_cos, indim)
-        self.register_buffer('offset', offset)
-        
-        # Calculate the distance between centers
-        width = (offset[1] - offset[0]).item()
-        
-        # 2. THE FIX: The 'gamma' factor makes the Gaussians "skinnier"
-        # This prevents massive overlap and forces sharper bin activation!
-        self.coeff = (-0.5 / (width ** 2)) * gamma
-
-    def forward(self, cos_angle):
-        diff = cos_angle.view(-1, 1) - self.offset.view(1, -1)
-        gaussians = torch.exp(self.coeff * torch.pow(diff, 2))
-        
-        # Mask out extreme outliers so they don't light up the edge bins infinitely
-        mask = (cos_angle >= self.offset[0]) & (cos_angle <= self.offset[-1])
-        gaussians = gaussians * mask.float().view(-1, 1)
-        
-        # 3. THE FIX: Return the raw Gaussians directly!
-        return gaussians.view(-1, self.numbasis)
