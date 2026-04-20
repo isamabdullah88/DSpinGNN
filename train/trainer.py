@@ -7,7 +7,8 @@ from .trainutils import savecheckpoint
 from .metrics import MetricsTracker
 
 class Trainer:
-    def __init__(self, model, train_loader, val_loader, optimizer, criterion, device, logger, config, scheduler=None):
+    def __init__(self, modelname, model, train_loader, val_loader, optimizer, criterion, device, logger, config, scheduler=None):
+        self.modelname = modelname
         self.model = model
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -32,14 +33,20 @@ class Trainer:
         
         for k, batch in enumerate(self.train_loader):
             batch = batch.to(self.device)
-            batch.pos.requires_grad_(True)
 
-            batch.pos = batch.pos + torch.randn_like(batch.pos) * 0.005
+            if self.modelname == "StructureModel":
+                batch.pos.requires_grad_(True)
             
             self.optimizer.zero_grad()
             
-            energy, exchange = self.model(batch)
-            forces = calcforce(energy, batch.pos)
+            if self.modelname == "StructureModel":
+                energy = self.model(batch)
+                forces = calcforce(energy, batch.pos)
+                exchange = torch.tensor([0.0], device=energy.device)  # Placeholder exchange
+            elif self.modelname == "ExchangeModel":
+                energy = torch.tensor([0.0], device=batch.z.device)  # Placeholder energy
+                forces = torch.tensor([0.0], device=batch.z.device)  # Placeholder forces
+                exchange = self.model(batch)
             
             loss, losse, lossf, lossx = self.criterion(energy, forces, exchange, batch)
             loss.backward()
@@ -59,12 +66,9 @@ class Trainer:
             # self.logger.info(exchangecomparison_str)
 
         metrics = self.train_metrics.get_averages()
-        # self.logger.info(f"[TRAINING] MAE-Exchange-MINI: {metrics['maexmini']:.5f}")
 
         wandb.log({
             "Train/MAE-Exchange": metrics["maex"],
-            # "Train/MAE-Exchange-Mini": metrics["maexmini"],
-            # "Train/MAE-Exchange-Rest": metrics["maexrest"],
             "Train/train_loss": metrics["loss"],
             "Train/train_loss_energy": metrics["losse"],
             "Train/train_loss_forces": metrics["lossf"],
@@ -106,21 +110,12 @@ class Trainer:
 
         metrics = self.val_metrics.get_averages()
 
-        # self.logger.info("[VALIDATION] RESULTS (Validation Set)")
-        # self.logger.info(f"[VALIDATION] Val Loss (MSE):     {metrics['loss']:.5f}")
-        # self.logger.info(f"[VALIDATION] Val Energy (MAE):   {metrics['maee']:.5f} eV/atom")
-        # self.logger.info(f"[VALIDATION] Val Forces (MAE):   {metrics['maef']:.5f} eV/A")
-        # self.logger.info(f"[VALIDATION] Val Exchange (MAE): {metrics['maex']:.5f}")
-        # self.logger.info(f"[VALIDATION] Val Exchange (MAE) - Short Range: {metrics['maex1']:.5f}")
-        # self.logger.info(f"[VALIDATION] Val Exchange (MAE) - Long Range: {metrics['maex2']:.5f}")
-
         wandb.log({
             "Test/MAE-Exchange": metrics["maex"],
             "Test/MAE-Exchange-Short": metrics["maex1"],
             "Test/MAE-Exchange-Long": metrics["maex2"],
             "Test/MAE-Energy": metrics["maee"],
             "Test/MAE-Force": metrics["maef"],
-            # "Test/MAE-Exchange-Mini": metrics["maexmini"],
             "Test/Validation-Loss": metrics["loss"],
             "Test/Validation-Loss-Energy": metrics["losse"],
             "Test/Validation-Loss-Forces": metrics["lossf"],
