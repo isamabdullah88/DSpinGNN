@@ -5,7 +5,6 @@ from torch_geometric.nn import global_add_pool
 from .embedding import AtomEmbedding
 from .interaction import InteractionBlock   
 from .outblock import OutputBlock
-from .exchange import ExchangeBlock
 
 
 def calcforce(energy, pos):
@@ -18,9 +17,9 @@ def calcforce(energy, pos):
     return forces
 
 
-class DSpinGNN(nn.Module):
+class StructureGNN(nn.Module):
     def __init__(self):
-        super(DSpinGNN, self).__init__()
+        super(StructureGNN, self).__init__()
         
         self.numembeds = 118
         self.l0dim = 32
@@ -36,15 +35,9 @@ class DSpinGNN(nn.Module):
         
         self.interaction_block3 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
 
-        # self.interaction_block4 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
-
-        # self.interaction_block5 = InteractionBlock(self.l0dim, self.l1dim, self.l2dim, self.rcut)
-
-        self.exchange_block = ExchangeBlock(self.l0dim, self.l1dim, self.l2dim)
-
         self.output_block = OutputBlock(self.l0dim, self.l1dim, self.l2dim)
 
-    def forward(self, batch) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, batch) -> torch.Tensor:
 
         nodes = self.atomembeds(batch.z)
 
@@ -54,16 +47,10 @@ class DSpinGNN(nn.Module):
 
         interacted3 = self.interaction_block3(interacted2, batch)
 
-        # interacted4 = self.interaction_block4(interacted3, batch)
-
-        # interacted5 = self.interaction_block5(interacted4, batch)
-        
-        exchangej = self.exchange_block(interacted3, batch)
-
         output = self.output_block(interacted3, batch.z)
 
         energyt = global_add_pool(output, batch.batch)
 
-        return energyt, exchangej
+        return energyt.view(-1)
     
 
