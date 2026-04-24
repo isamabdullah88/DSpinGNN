@@ -35,6 +35,8 @@ class CrI3_Simulator:
         self.out_dir = self.config.target_dir
         self.out_dir.mkdir(parents=True, exist_ok=True)
         self.outfile = self.out_dir / "trajectory.xyz"
+
+        self.datafile = self.out_dir / "data.txt"
         
         self.logger.info("Initialized Simulator.")
         self.logger.info(f"Output directory mapped to: {self.out_dir}")
@@ -74,7 +76,7 @@ class CrI3_Simulator:
         )
         
         # Route to the appropriate deformation method
-        if self.config.strain_type in ["uniform_x", "uniform_y", "biaxial_uniform"]:
+        if self.config.strain_type in ["Uniaxial_X", "Uniaxial_Y", "Biaxial"]:
             # Example mapping: customize these string hooks based on your StrainEngineer updates
             strain_x = self.config.amplitude if "x" in self.config.strain_type or "biaxial" in self.config.strain_type else 0.0
             strain_y = self.config.amplitude if "y" in self.config.strain_type or "biaxial" in self.config.strain_type else 0.0
@@ -119,8 +121,23 @@ class CrI3_Simulator:
         with open(self.outfile, 'w') as f:
             pass
 
+        with open(self.datafile, 'w') as f:
+            f.write("Step Energy(eV) Cr-Cr_Angle(deg) Exchange_J(meV)\n")
+
         # 6. Attach MD Hooks (IO, Tracking, Progress Bar)
         def write_frame():
+            step = dyn.get_number_of_steps()
+            energy = atoms.calc.results['energy']
+            forces = atoms.calc.results['forces']
+            cr_angles = np.squeeze(atoms.calc.results.get('cr_angles'))
+            exchange_j = np.squeeze(atoms.calc.results.get('exchangej'))
+
+            with open(self.datafile, 'a') as f:
+                jvalues = ",".join([f"{j:.3f}" for j in exchange_j.tolist()])
+                angles = ",".join([f"{angle:.3f}" for angle in cr_angles.tolist()])
+                f.write(f"{step} {energy:.3f} {angles} {jvalues}\n")
+                
+
             if 'local_j' in atoms.calc.results:
                 atoms.set_array("Local_J", atoms.calc.results['local_j'])
             write(self.outfile, atoms, format='extxyz', append=True)
@@ -157,9 +174,9 @@ if __name__ == "__main__":
         nx=5,                     
         ny=5,                     
         tmpK=5,                  
-        timesteps=10000,          
-        amplitude=0.5,          
-        strain_type="uniaxial" # Maps to density wave ripple or uniform strain depending on apply_strain hook
+        timesteps=1000,          
+        amplitude=0.3,          
+        strain_type="biaxial" # Maps to density wave ripple or uniform strain depending on apply_strain hook
     )
     
     # 2. Initialize and run
