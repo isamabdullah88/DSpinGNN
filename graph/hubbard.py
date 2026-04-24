@@ -82,9 +82,8 @@ class EspressoHubbard:
                 # An atom line has >=4 parts and starts with a chemical symbol
                 if len(parts) >= 4 and re.match(r'^[A-Za-z]+', parts[0]):
                     positions.append([float(parts[1]), float(parts[2]), float(parts[3])])
-                # else:
-                    # self.logger.critical(f"{self.logprefix} Unrecognized line in ATOMIC_POSITIONS block: '{line}'.")
-                    # sys.exit(1)
+                else:
+                    self.logger.warning(f"{self.logprefix} Unrecognized line in ATOMIC_POSITIONS block: '{line}'.")
                     
             # Only apply if we extracted the correct number of atoms
             if len(positions) == len(atoms):
@@ -167,8 +166,7 @@ class EspressoHubbard:
                 stress_voigt = np.array([stress[0,0], stress[1,1], stress[2,2], 
                                         stress[1,2], stress[0,2], stress[0,1]])
 
-            # Reconstruct
-            # atomsout = atoms.copy()
+            # Reconstruct ASE Atoms with Hubbard results
             atomsout.calc = None 
     
             # Calculate atomic moments estimate
@@ -195,52 +193,6 @@ class EspressoHubbard:
             atomsout.calc = calc
 
             return atomsout
-
-
-    # ---------------------------------------------------------------------------------------------
-    def runQE(self, atoms, input_data, kpts, directory):
-        """
-        Manually writes input, appends Hubbard, runs PW.x, and reads output.
-        Bypasses ASE Calculator logic to prevent file overwrites/formatting bugs.
-        """
-        inname = 'espresso.pwi'
-        outname = 'espresso.pwo'
-        
-        inputpath = os.path.join(directory, inname)
-        
-        # Write Standard Input
-        write_espresso_in(inputpath, 
-            atoms, 
-            format='espresso-in', 
-            input_data=input_data, 
-            pseudopotentials=PSEUDOS, 
-            kpts=kpts)
-        
-        # HUBBARD Card
-        with open(inputpath, 'a') as f:
-            if self.phase == 'AFM':
-                f.write("\nHUBBARD (atomic)\nU Cr-3d 3.0\nU Cr1-3d 3.0\n\n")
-            else:
-                f.write("\nHUBBARD (atomic)\nU Cr-3d 3.0\n\n")
-            
-        
-        if platform.system() == "Darwin":
-            cmd = f"mpirun -np {self.cores_per_job} pw.x -in {inname} > {outname}"
-        else:
-            cmd = f"mpirun --bind-to core -np {self.cores_per_job} pw.x -in {inname} > {outname}"
-        
-        try:
-            subprocess.run(cmd, shell=True, cwd=directory, check=True)
-        except subprocess.CalledProcessError as e:
-            raise RuntimeError(f"QE Failed: {e}")
-
-        # Parse Output
-        pwipath = os.path.join(directory, inname)
-        pwopath = os.path.join(directory, outname)
-
-        atomsout = self.parse(pwipath, pwopath, atoms)
-        
-        return atomsout
     
 
 # ---------------------------------------------------------------------------------------------

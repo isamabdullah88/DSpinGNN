@@ -7,14 +7,11 @@ Author: Isam Balghari
 
 import logging
 import torch
-import numpy as np
 import matplotlib.pyplot as plt
 from torch_geometric.loader import DataLoader
 from sklearn.model_selection import train_test_split
 
-# ==========================================
-# 1. ML Pipeline Module
-# ==========================================
+
 class DatasetManager:
     """Handles loading, splitting, and batching of PyG datasets."""
     
@@ -24,7 +21,7 @@ class DatasetManager:
         self.num_workers = num_workers
         self.random_state = random_state
 
-    def create_stratified_split(self, dataset, test_size=0.15, extreme_threshold=2.5):
+    def stratified_split(self, dataset, test_size=0.15, extreme_threshold=2.5):
         """
         Splits a graph dataset ensuring that crystals with extreme J values
         are proportionally distributed between train and validation sets.
@@ -55,7 +52,7 @@ class DatasetManager:
         
         return train_dataset, val_dataset
 
-    def get_dataloaders(self, datasetpath):
+    def dataloaders(self, datasetpath):
         """Loads the raw file and returns PyTorch DataLoaders."""
         datalist = torch.load(datasetpath, weights_only=False)
         
@@ -65,7 +62,7 @@ class DatasetManager:
         else:
             dataset = datalist
 
-        trainlist, valist = self.create_stratified_split(dataset, test_size=0.15)
+        trainlist, valist = self.stratified_split(dataset, test_size=0.15)
 
         # Common kwargs for loaders
         loader_kwargs = {
@@ -85,8 +82,10 @@ class DatasetManager:
 # 3. Execution Script
 # ==========================================
 if __name__ == "__main__":
+    from .inspector import GraphVisualizer
     # Setup basic logging to console if running standalone
     logging.basicConfig(level=logging.INFO, format="%(message)s")
+
     
     DATA_PATH = "./DataSets/GNN/Exchange-Full-Mixed-Extreme-Stripped_-1.5_3-Pruned_-3.0_3.0-Rcut_4.5.pth"
     
@@ -95,7 +94,7 @@ if __name__ == "__main__":
     visualizer = GraphVisualizer()
     
     # 2. Get Data
-    trainloader, valloader = data_manager.get_dataloaders(DATA_PATH)
+    trainloader, valloader = data_manager.dataloaders(DATA_PATH)
     
     # 3. Run Visualizations
     visualizer.plot_j_vs_distance(trainloader, save_path="train_j_vs_dist.png")

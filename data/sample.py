@@ -1,6 +1,11 @@
-# ==========================================
-# 2. Single Sample Processing Module
-# ==========================================
+from pathlib import Path
+import torch
+import numpy as np
+from torch_geometric.data import Data
+from graph import EspressoHubbard, CrystalGraphTensor, ExchangeGraph
+
+import logging
+
 class SampleProcessor:
     """Handles parsing DFT and TB2J outputs for a single crystal directory."""
     def __init__(self, rcut, force_thresh=5.0, exchange_range=(-1.5, 3.0)):
@@ -12,7 +17,7 @@ class SampleProcessor:
         # Initialize graph builders
         self.hubbard = EspressoHubbard()
         self.cgraph = CrystalGraphTensor()
-        self.egraph = ExchangeGraphPipeline() # Using our newly unified class!
+        self.egraph = ExchangeGraph() # Using our newly unified class!
 
     def process(self, sample_dir: Path):
         """Parses a directory and returns a PyG Data object or None if invalid."""
@@ -47,7 +52,7 @@ class SampleProcessor:
             return None
             
         # CRITICAL UPDATE: Using the new unified pipeline method
-        cr_edges, exchangejs, cr_shifts, cr_edgedists, cr_cr_angles, cri_bonds = \
+        credges, exchangejs, eshifts, distances, cosangles, bonds, angles = \
             self.egraph.process_atoms(atomsout, rcut=self.rcut, xmlpath=str(tb2jpath))
 
         # 4. Filter by Exchange limits (Your -1.5 to 3.0 meV scope)
@@ -65,11 +70,10 @@ class SampleProcessor:
             y_forces=torch.tensor(forces, dtype=torch.float32),
             edge_index=edgeidxs,
             edge_shift=edgeshifts,
-            cr_edge_index=cr_edges,
-            cr_edge_shift=cr_shifts,
-            cr_edge_dist=cr_edgedists,
-            cr_cr_angles=cr_cr_angles,
-            cr_i_bonds=cri_bonds,
-            y_exchange=exchangejs,
-            exchange=torch.tensor([[True]], dtype=torch.bool)
+            cr_edge_index=credges,
+            cr_edge_shift=eshifts,
+            cr_edge_dist=distances,
+            cr_cr_angles=cosangles,
+            cr_i_bonds=bonds,
+            y_exchange=exchangejs
         )

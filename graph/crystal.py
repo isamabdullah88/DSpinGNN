@@ -1,16 +1,8 @@
 import torch
-import numpy as np
-
-from .CrI3 import CrI3
 
 class CrystalGraphTensor:
     def __init__(self):
         pass
-        # self.CrI3 = CrI3()
-
-        # self.pos = torch.tensor(self.CrI3.batoms.get_positions(), dtype=torch.float32)
-        # self.cell = torch.tensor(self.CrI3.cell, dtype=torch.float32)
-
 
     def crystalgraph(self, rcut, atoms):
         """
@@ -40,16 +32,16 @@ class CrystalGraphTensor:
         dstidxs = ghostidxs % N
         cellidxs = ghostidxs // N
 
-        is_home_cell = (stack[cellidxs] == 0).all(dim=1)
-        is_self_loop = (srcidxs == dstidxs) & is_home_cell
+        homecell = (stack[cellidxs] == 0).all(dim=1)
+        selfloop = (srcidxs == dstidxs) & homecell
 
         # Invert to keep only valid edges
-        valid_edges = ~is_self_loop
+        vedges = ~selfloop
 
         # Apply the filter
-        srcidxs = srcidxs[valid_edges]
-        dstidxs = dstidxs[valid_edges]
-        cellidxs = cellidxs[valid_edges]
+        srcidxs = srcidxs[vedges]
+        dstidxs = dstidxs[vedges]
+        cellidxs = cellidxs[vedges]
 
         shifts = stack[cellidxs]
 
@@ -60,8 +52,8 @@ class CrystalGraphTensor:
 
 
 if __name__ == "__main__":
-    from data.testedges import verify_against_ase
- 
+    from .CrI3 import CrI3
+    atoms = CrI3().batoms
     z = torch.tensor([24, 24, 51, 51, 51, 51, 51, 51], dtype=torch.int64)
     crystal = CrystalGraphTensor()
  
@@ -69,4 +61,4 @@ if __name__ == "__main__":
     
     edges, tshifts = crystal.crystalgraph(rcut=rcut, atoms=atoms)
 
-    verify_against_ase(crystal.pos, crystal.cell, z, edges, tshifts, cutoff=rcut)
+    # verify_against_ase(crystal.pos, crystal.cell, z, edges, tshifts, cutoff=rcut)
