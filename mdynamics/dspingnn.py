@@ -4,7 +4,7 @@ from ase.calculators.calculator import Calculator, all_changes
 from torch_geometric.data import Data
 
 # Ensure this points to the new Unified Pipeline we just wrote!
-from graph import CrystalGraphTensor, ExchangeGraphPipeline 
+from graph import CrystalGraphTensor, ExchangeGraph 
 from model import calcforce
 
 class DSpinGNNCalculator(Calculator):
@@ -24,7 +24,7 @@ class DSpinGNNCalculator(Calculator):
 
         # Initialize Graph Pipelines
         self.cgraph = CrystalGraphTensor()
-        self.egraph = ExchangeGraphPipeline(device=self.device)
+        self.egraph = ExchangeGraph(device=self.device)
 
     def prepdata(self, atoms):
         """Converts ASE Atoms to a joint PyG Data object for both models."""
@@ -44,7 +44,7 @@ class DSpinGNNCalculator(Calculator):
 
         # 3. Magnetic Exchange Graph (For J values)
         # We pass xmlpath=None because this is pure simulation/inference
-        cr_edges, _, cr_shifts, cr_edgedists, cr_cr_angles, cri_bonds = \
+        cr_edges, _, cr_shifts, cr_edgedists, cr_cr_angles, cri_bonds, angles = \
             self.egraph.process_atoms(atoms, rcut=self.rcut, xmlpath=None)
 
         # 4. Pack everything into a single Data object
@@ -52,7 +52,7 @@ class DSpinGNNCalculator(Calculator):
             z=z, pos=pos, cell=cell, batch=batch,
             edge_index=edgeidxs, edge_shift=edgeshifts,
             cr_edge_index=cr_edges, cr_edge_shift=cr_shifts,
-            cr_edge_dist=cr_edgedists, cr_cr_angles=cr_cr_angles, cr_i_bonds=cri_bonds
+            cr_edge_dist=cr_edgedists, cr_cr_angles=cr_cr_angles, cr_i_bonds=cri_bonds, cr_angles=angles
         )
 
     def calculate(self, atoms=None, properties=None, system_changes=all_changes):
@@ -82,6 +82,8 @@ class DSpinGNNCalculator(Calculator):
         # ==========================================
         self.results['energy'] = energy.detach().cpu().item()
         self.results['forces'] = forces.detach().cpu().numpy()
+        self.results['cr_angles'] = data.cr_angles.detach().cpu().numpy()
+        self.results['exchangej'] = exchange.detach().cpu().numpy()
 
         # 5. Map Edge Exchange (J) to Atomic Nodes for OVITO Visualization
         local_j_field = torch.zeros(len(self.atoms), dtype=torch.float32, device=self.device)
