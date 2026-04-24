@@ -2,14 +2,11 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
-# ==========================================
-# 2. Analytics & Visualization Module
-# ==========================================
 class GraphVisualizer:
     """Extracts physical tensors from dataloaders and plots distributions."""
     
     @staticmethod
-    def _calculate_pbc_distances(batch):
+    def _pbc_distances(batch):
         """DRY Helper method to calculate accurate distances across PBC boundaries."""
         src, dst = batch.cr_edge_index
         graphidxs = batch.batch[src]
@@ -33,7 +30,7 @@ class GraphVisualizer:
                 all_cr_i.extend(batch.cr_i_bonds.view(-1).cpu().numpy())
                 
                 # 2. Extract Cr-Cr distances
-                dist = self._calculate_pbc_distances(batch)
+                dist = self._pbc_distances(batch)
                 all_cr_cr.extend(dist.cpu().numpy())
         
         all_cr_cr = np.array(all_cr_cr)
@@ -77,7 +74,7 @@ class GraphVisualizer:
         
         with torch.no_grad():
             for batch in dataloader:
-                dist = self._calculate_pbc_distances(batch)
+                dist = self._pbc_distances(batch)
                 yexchange = batch.y_exchange.view(-1)
                 
                 all_distances.extend(dist.cpu().numpy())
