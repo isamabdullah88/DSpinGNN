@@ -1,52 +1,62 @@
-# DSpinGNN: Disentangled Spin Graph Neural Network for 2D Magnetism
+# DSpinGNN: Deep Learning for Macroscopic Spin-Lattice Dynamics in 2D Magnetism
 
-This repository contains the implementation of DSpinGNN, an $E(3)$-equivariant Graph Neural Network developed as the core research of my MS Physics thesis. Building upon a foundational implementation of DSpinGNN, this project extends equivariant architectures to simultaneously predict interatomic potentials and magnetic exchange interactions in strain-engineered 2D magnetic materials, with a primary focus on **Chromium Triiodide (CrI₃)**.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c.svg)](https://pytorch.org/)
 
+This repository contains the official implementation of **DSpinGNN**, a physics-informed, $E(3)$-equivariant Graph Neural Network developed for my MS Physics thesis. 
 
-## 🚀 Project Overview
-
-The goal of this project is to map the complex magneto-elastic tensor of 2D materials using a combination of High-Throughput Density Functional Theory (DFT) and Machine Learning. By predicting how structural deformations alter the Goodenough-Kanamori-Anderson (GKA) super-exchange pathways, DSpinGNN serves as a predictive engine for engineering Ferromagnetic (FM) to Antiferromagnetic (AFM) phase transitions.
-
-### Key Features
-* **Multi-Task Equivariant Architecture**: An extension of the DSpinGNN backbone that utilizes an advanced Edge Decoder to simultaneously predict Graph-level (Total Energy), Node-level (Atomic Forces), and Edge-level (Heisenberg Exchange $J_{ij}$) properties.
-* **High-Throughput DFT Pipeline**: Fully automated Python framework utilizing ASE to systematically generate and relax Uniaxial, Biaxial, and Shear strain configurations across periodic boundary conditions.
-* **First-Principles Spin Extraction**: Integration of **Quantum ESPRESSO**, **Wannier90**, and **TB2J** to rigorously extract magnetic exchange parameters from maximally localized Wannier functions.
-* **Periodic Graph Construction**: Custom data loaders in PyTorch Geometric (PyG) that map distant unit-cell interactions using fractional lattice shift vectors ($R$), strictly preserving the physics of the infinite 2D crystal
+DSpinGNN bridges the severe length-scale gap between first-principles quantum mechanics and macroscopic molecular dynamics. By simultaneously predicting interatomic potentials and dynamic magnetic exchange couplings ($J$), this framework enables the unprecedented simulation of mesoscopic spin-lattice entanglement in strain-engineered 2D magnetic materials, with a primary focus on **Chromium Triiodide (CrI₃)**.
 
 ---
 
-## 📊 Physical Objectives & Applications
+## 🎥 Emergent Magnetic Phase Coexistence
 
-DSpinGNN is designed to solve critical bottlenecks in the commercialization of 2D spintronics:
+*Watch the macroscopic spin-lattice dynamics simulation below:*
 
-1. **FM-AFM Phase Transitions**: Mapping the exact mechanical tipping points where strain forces a magnetic phase transition, enabling the design of Terahertz-speed, high-density, piezomagnetic memory devices.
-2. **Curie Temperature ($T_C$) Engineering**: Identifying specific strain tensors that maximize orbital overlap and strengthen the Heisenberg exchange, providing a theoretical pathway to push 2D magnetism closer to room temperature.
-3. **Physics-Informed Regularization**: By driving the network training with both Energy/Forces and tiny $J$ parameters (meV scale), the model learns a highly accurate internal representation of the chemical bonds before predicting the sensitive magnetic states.
+[![Watch the Simulation](https://img.youtube.com/vi/Ma-eBKL-Knc/maxresdefault.jpg)](https://youtu.be/Ma-eBKL-Knc)
+*(Click the image to play the video).*
 
-
+In this 3,200-atom simulation, a propagating in-plane acoustic strain wave organically induces the formation of **oscillatory, concentric domain walls**. The network successfully resolves a complex topological magnetic landscape, capturing the dynamic "breathing" cycle of transient Ferromagnetic (FM) and Antiferromagnetic (AFM) phases. 
 
 ---
 
-## 🛠️ Tech Stack
+## 🚀 Key Scientific Breakthroughs
+
+### 1. Massive Length-Scale Transferability (8 to 3,200 Atoms)
+First-principles Density Functional Theory (DFT) is intrinsically restricted to a few hundred atoms due to its $O(N^3)$ scaling. DSpinGNN breaks this bottleneck. Trained strictly on computationally inexpensive 8-atom primitive unit cells, the network achieves remarkable structural equivariance. This allows it to be scaled up by a factor of 400 to drive a stable 3,200-atom simulation without unphysical error accumulation.
+
+### 2. Physics-Informed Extrapolation
+Rather than relying on black-box data fitting, DSpinGNN's $\Delta$-MLP exchange predictor explicitly embeds the quantum mechanical **Goodenough-Kanamori superexchange rules** alongside an orbital overlap decay function. Because of this strong analytical inductive bias, the model robustly extrapolates complex, non-linear phase transitions well beyond its original training manifold during extreme localized structural deformations (up to 115° bond angles).
+
+---
+
+## 🛠️ Core Architecture & Pipeline
+
+* **Bifurcated Equivariant Architecture**: Utilizes an Equivariant Graph Neural Network (based on NequIP) to predict Total Energy and Atomic Forces while strictly preserving $E(3)$ symmetries. Simultaneously, an independent physics-informed $\Delta$-MLP predicts continuous Edge-level Heisenberg Exchange parameters ($J_{ij}$).
+* **High-Throughput DFT Data Generation**: Fully automated Python framework utilizing ASE to systematically generate and relax Uniaxial, Biaxial, and Shear strain configurations across periodic boundary conditions.
+* **First-Principles Spin Extraction**: Seamless integration of **Quantum ESPRESSO**, **Wannier90**, and **TB2J** to rigorously calculate highly localized magnetic exchange parameters via the magnetic force theorem.
+* **Langevin Spin-Lattice Dynamics**: Coupling the DSpinGNN potential with ASE to drive large-scale, discrete time-step Langevin dynamics, mapping localized magnetic responses continuously across spatial and temporal dimensions.
+
+---
+
+## 📊 Physical Objectives & Future Applications
+
+DSpinGNN establishes a highly scalable, computationally rigorous paradigm for uncovering complex spin-lattice entanglement. It is designed to solve critical bottlenecks in the commercialization of 2D spintronics:
+1.  **Programmable Magnetic Landscapes**: Mapping the exact mechanical tipping points where propagating strain waves force localized magnetic phase transitions. 
+2.  **Strain-Driven Device Engineering**: Providing a theoretical playground to design non-volatile, high-density, spin-based memory storage and logic devices driven by surface acoustic waves or substrate corrugations.
+
+---
+
+## 💻 Tech Stack
+
 * **Deep Learning**: PyTorch, PyTorch Geometric (PyG), e3nn (Euclidean Neural Networks)
-
-* **First-Principles Physics**: Quantum ESPRESSO (DFT), Wannier90 (Disentanglement), TB2J (Magnetic Exchange)
-
-* **Molecular Tools**: ASE (Atomic Simulation Environment)
-
-* **Infrastructure**: High-Performance Computing (HPC) Clusters / DigitalOcean GPU Droplets
-
-* **Data Serialization**: PyTorch Binary Datasets (.pt)
-
----
-
-## 🔬 Thesis Context: From Molecules to Magnetism
-
-This repository represents the advanced application phase of my MS Thesis. It directly builds upon my previous work verifying from-scratch $E(3)$-equivariant mechanics on standard organic molecular dynamics (e.g., Aspirin/MD17).
-
-By upgrading the architecture to handle periodic boundary conditions, transition-metal $d$-orbitals, and edge-level tensor predictions, DSpinGNN bridges the gap between purely structural machine learning potentials and the predictive discovery of next-generation quantum magnetic materials.
+* **First-Principles Physics**: Quantum ESPRESSO, Wannier90, TB2J
+* **Dynamics & Visualization**: ASE (Atomic Simulation Environment), OVITO, Matplotlib
+* **Infrastructure**: LUMS High-Performance Computing Cluster, DigitalOcean GPU Droplets
 
 ---
 **Author**: Isam Balghari  
+**Institution**: Lahore University of Management Sciences (LUMS)  
 **Degree**: MS Physics  
-**Expected Completion**: May 2026
+**Date**: May 2026
