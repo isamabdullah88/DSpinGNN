@@ -14,11 +14,8 @@ DSpinGNN bridges the severe length-scale gap between first-principles quantum me
 
 *Watch the macroscopic spin-lattice dynamics simulation below:*
 
-
-
-https://github.com/user-attachments/assets/1500968c-8b54-44b0-a2a9-097d9c0079e7
-
-
+[![Watch the Simulation](https://img.youtube.com/vi/Ma-eBKL-Knc/maxresdefault.jpg)](https://youtu.be/Ma-eBKL-Knc)
+*(Click the image to play the video).*
 
 In this 3,200-atom simulation, a propagating in-plane acoustic strain wave organically induces the formation of **oscillatory, concentric domain walls**. The network successfully resolves a complex topological magnetic landscape, capturing the dynamic "breathing" cycle of transient Ferromagnetic (FM) and Antiferromagnetic (AFM) phases. 
 
