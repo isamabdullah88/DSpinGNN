@@ -10,7 +10,7 @@ DSpinGNN bridges the severe length-scale gap between first-principles quantum me
 
 ---
 
-## 🎥 Emergent Magnetic Phase Coexistence
+## Emergent Magnetic Phase Coexistence
 
 *Watch the macroscopic spin-lattice dynamics simulation below:*
 
@@ -21,7 +21,7 @@ In this 3,200-atom simulation, a propagating in-plane acoustic strain wave organ
 
 ---
 
-## 🚀 Key Scientific Breakthroughs
+## Key Scientific Breakthroughs
 
 ### 1. Massive Length-Scale Transferability (8 to 3,200 Atoms)
 First-principles Density Functional Theory (DFT) is intrinsically restricted to a few hundred atoms due to its $O(N^3)$ scaling. DSpinGNN breaks this bottleneck. Trained strictly on computationally inexpensive 8-atom primitive unit cells, the network achieves remarkable structural equivariance. This allows it to be scaled up by a factor of 400 to drive a stable 3,200-atom simulation without unphysical error accumulation.
@@ -31,7 +31,7 @@ Rather than relying on black-box data fitting, DSpinGNN's $\Delta$-MLP exchange 
 
 ---
 
-## 🛠️ Core Architecture & Pipeline
+## Core Architecture & Pipeline
 
 * **Bifurcated Equivariant Architecture**: Utilizes an Equivariant Graph Neural Network (based on NequIP) to predict Total Energy and Atomic Forces while strictly preserving $E(3)$ symmetries. Simultaneously, an independent physics-informed $\Delta$-MLP predicts continuous Edge-level Heisenberg Exchange parameters ($J_{ij}$).
 * **High-Throughput DFT Data Generation**: Fully automated Python framework utilizing ASE to systematically generate and relax Uniaxial, Biaxial, and Shear strain configurations across periodic boundary conditions.
@@ -40,7 +40,7 @@ Rather than relying on black-box data fitting, DSpinGNN's $\Delta$-MLP exchange 
 
 ---
 
-## 📊 Physical Objectives & Future Applications
+## Physical Objectives & Future Applications
 
 DSpinGNN establishes a highly scalable, computationally rigorous paradigm for uncovering complex spin-lattice entanglement. It is designed to solve critical bottlenecks in the commercialization of 2D spintronics:
 1.  **Programmable Magnetic Landscapes**: Mapping the exact mechanical tipping points where propagating strain waves force localized magnetic phase transitions. 
@@ -48,7 +48,7 @@ DSpinGNN establishes a highly scalable, computationally rigorous paradigm for un
 
 ---
 
-## 💻 Tech Stack
+## Tech Stack
 
 * **Deep Learning**: PyTorch, PyTorch Geometric (PyG), e3nn (Euclidean Neural Networks)
 * **First-Principles Physics**: Quantum ESPRESSO, Wannier90, TB2J
