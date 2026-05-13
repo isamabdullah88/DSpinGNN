@@ -34,7 +34,7 @@ Rather than relying on black-box data fitting, DSpinGNN's $\Delta$-MLP exchange 
 ## Core Architecture & Pipeline
 
 * **Bifurcated Equivariant Architecture**: Utilizes an Equivariant Graph Neural Network (based on NequIP) to predict Total Energy and Atomic Forces while strictly preserving $E(3)$ symmetries. Simultaneously, an independent physics-informed $\Delta$-MLP predicts continuous Edge-level Heisenberg Exchange parameters ($J_{ij}$).
-* **High-Throughput DFT Data Generation**: Fully automated Python framework utilizing ASE to systematically generate and relax Uniaxial, Biaxial, and Shear strain configurations across periodic boundary conditions.
+* **First-Principles Data Generation via [SpinDFT](https://github.com/isamabdullah88/SpinDFT)**: The ground-truth training manifold is generated entirely by SpinDFT, an automated Python orchestrator utilizing ASE to systematically generate strain configurations. It seamlessly integrates **Quantum ESPRESSO**, **Wannier90**, and **TB2J** to rigorously extract magnetic exchange parameters from maximally localized Wannier functions.
 * **First-Principles Spin Extraction**: Seamless integration of **Quantum ESPRESSO**, **Wannier90**, and **TB2J** to rigorously calculate highly localized magnetic exchange parameters via the magnetic force theorem.
 * **Langevin Spin-Lattice Dynamics**: Coupling the DSpinGNN potential with ASE to drive large-scale, discrete time-step Langevin dynamics, mapping localized magnetic responses continuously across spatial and temporal dimensions.
 
