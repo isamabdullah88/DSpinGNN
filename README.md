@@ -21,7 +21,7 @@ In this 3,200-atom simulation, a propagating in-plane acoustic strain wave organ
 
 ---
 
-## Key Scientific Breakthroughs
+## Key Scientific Results
 
 ### 1. Massive Length-Scale Transferability (8 to 3,200 Atoms)
 First-principles Density Functional Theory (DFT) is intrinsically restricted to a few hundred atoms due to its $O(N^3)$ scaling. DSpinGNN breaks this bottleneck. Trained strictly on computationally inexpensive 8-atom primitive unit cells, the network achieves remarkable structural equivariance. This allows it to be scaled up by a factor of 400 to drive a stable 3,200-atom simulation without unphysical error accumulation.
