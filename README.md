@@ -38,6 +38,8 @@ Rather than relying on black-box data fitting, DSpinGNN's $\Delta$-MLP exchange 
 * **First-Principles Spin Extraction**: Seamless integration of **Quantum ESPRESSO**, **Wannier90**, and **TB2J** to rigorously calculate highly localized magnetic exchange parameters via the magnetic force theorem.
 * **Langevin Spin-Lattice Dynamics**: Coupling the DSpinGNN potential with ASE to drive large-scale, discrete time-step Langevin dynamics, mapping localized magnetic responses continuously across spatial and temporal dimensions.
 
+All equivariant layers are implemented from scratch using direct e3nn and PyTorch operations; the NequIP codebase is not used.
+
 ---
 
 ## Physical Objectives & Future Applications
