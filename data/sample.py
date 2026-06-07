@@ -74,6 +74,7 @@ class SampleProcessor:
             cr_edge_shift=eshifts,
             cr_edge_dist=distances,
             cr_cr_angles=cosangles,
+            crcr_angles=angles,
             cr_i_bonds=bonds,
             y_exchange=exchangejs
         )
