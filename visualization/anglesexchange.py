@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 import pandas as pd
-import seaborn as sns
 import numpy as np
 
 # 1. Parse the Custom Data Format
@@ -24,7 +23,7 @@ with open('Simulations/DOCheckpoints-Full-Exchange-DataSet1-1/biaxial_5x5_T5K_Am
             try:
                 angles = []
                 exchanges = []
-                for a,j in zip(parts[2].split(','), parts[3].split(',')):
+                for a, j in zip(parts[2].split(','), parts[3].split(',')):
                     if float(a) > 10.0:
                         angles.append(float(a))
                         exchanges.append(float(j))
@@ -71,42 +70,69 @@ sampled_df = sampled_df.drop(columns=['angle_bin'])
 print(f"Uniformly sampled points ready for plotting: {len(sampled_df)}")
 
 # ==========================================
-# --- UNIFORM SAMPLING LOGIC ENDS HERE ---
+# --- PRB PUBLICATION PLOT CONFIGURATION ---
 # ==========================================
 
-# 2. Set up the figure for high readability on a poster
-plt.figure(figsize=(8, 6))
-sns.set_theme(style="whitegrid") # Clean white background looks best on posters
+# APS / PRB Styling Dictionary (Strictly enforced)
+_PUB_RC = {
+    "font.family": "serif",
+    "font.serif": ["Times New Roman", "Times", "DejaVu Serif"],
+    "mathtext.fontset": "stix",  # Matches Times serif styling for math
+    "axes.labelsize": 10,
+    "xtick.labelsize": 9,
+    "ytick.labelsize": 9,
+    "axes.linewidth": 0.8,
+    "xtick.major.size": 4,
+    "ytick.major.size": 4,
+    "xtick.major.width": 0.8,
+    "ytick.major.width": 0.8,
+    "xtick.direction": "in",      # PRB requires inward pointing ticks
+    "ytick.direction": "in",
+    "xtick.top": True,            # Full bounding box ticks
+    "ytick.right": True,
+    "axes.spines.top": True,      # Full bounding box spines
+    "axes.spines.right": True,
+    "grid.linestyle": "--",
+    "grid.color": "#E0E0E0",
+    "grid.linewidth": 0.5,
+    "legend.frameon": False,      # Legends float without a heavy box
+    "legend.fontsize": 8,
+}
 
-# 3. Create the scatter plot
-# NOTE: We are now passing 'sampled_df' instead of 'df'
-# Alpha is bumped up to 0.7 since there are fewer overlapping dots
-sns.scatterplot(
-    data=sampled_df, 
-    x='Bond_Angle', 
-    y='Local_J', 
+plt.rcParams.update(_PUB_RC)
+
+# PRB Single-Column exact width is 3.375 inches. 
+# 2.6 height gives a nice, compact aspect ratio for a secondary figure.
+fig, ax = plt.subplots(figsize=(3.375, 2.6), constrained_layout=True)
+
+# Create the scatter plot using pure Matplotlib to avoid Seaborn style clashes
+ax.scatter(
+    sampled_df['Bond_Angle'], 
+    sampled_df['Local_J'], 
     color='#1f77b4', 
-    alpha=0.7, 
-    edgecolor=None,
-    s=40 # 's' controls dot size, making them slightly larger looks better sampled
+    alpha=0.85, 
+    edgecolors='white',
+    linewidths=0.4,
+    s=25, 
+    zorder=3
 )
 
-# 4. Draw the Physics Boundaries (The Goodenough-Kanamori visual proof)
-# A red dashed line separating Ferromagnetic (Positive) and Antiferromagnetic (Negative)
-plt.axhline(y=0, color='red', linestyle='--', linewidth=2, label='FM / AFM Boundary')
+# Draw the Physics Boundaries
+ax.axhline(y=0, color='#d62728', linestyle='--', linewidth=1.0, label='FM / AFM Boundary', zorder=2)
+ax.axvline(x=90, color='gray', linestyle=':', linewidth=1.0, label=r'Pristine $\sim90^\circ$ Bond', zorder=2)
 
-# A gray dotted line showing where pristine, unstrained CrI3 sits
-plt.axvline(x=90, color='gray', linestyle=':', linewidth=2, label='Pristine ~90° Bond')
+# Format labels
+ax.set_xlabel(r'Cr-I-Cr Bond Angle ($^\circ$)')
+ax.set_ylabel(r'Exchange Coupling $J$ (meV)')
 
-# 5. Format labels and titles (Make text large for poster readability)
-plt.xlabel('Cr-I-Cr Bond Angle (Degrees)', fontsize=16, fontweight='bold')
-plt.ylabel('Local Exchange Coupling J (meV)', fontsize=16, fontweight='bold')
-plt.xticks(fontsize=14)
-plt.yticks(fontsize=14)
-plt.legend(fontsize=14, loc='best')
+# Add professional grid
+ax.grid(True, zorder=0)
 
-plt.tight_layout()
+# Format legend
+ax.legend(loc='lower right', handlelength=1.5)
 
-# 6. Save as a massive, high-res PNG for Canva (400 DPI)
-plt.savefig('Goodenough_Kanamori_Plot_Sampled.png', dpi=400, bbox_inches='tight')
-print("High-res sampled plot saved and ready for Canva!")
+# Save as a true vector PDF at 600 DPI (APS Standard)
+plt.savefig('Paper_Goodenough_Kanamori_Sampled.pdf', format='pdf', dpi=600, transparent=True, bbox_inches='tight')
+print("PRB-formatted vector plot saved successfully!")
+
+plt.show()
