@@ -4,7 +4,7 @@ import torch
 import torch.optim as optim
 import wandb
 
-from data import getdata
+from data import DatasetManager
 from model import StructureGNN, ExchangeMLP
 from train import load_checkpoint, count_parameters, MultiTaskLoss, Trainer, initialize_shift_scale
 from logger import getlogger
@@ -56,7 +56,8 @@ def main(args):
     logger.info(f"Using device: {device}")
 
     # Data Loading
-    trainloader, valloader, _ = getdata(args.datasetpath, batch_size=args.batch_size)
+    dataset_manager = DatasetManager()
+    trainloader, valloader = dataset_manager.dataloaders(args.datasetpath)
     logger.info(f"Training samples: {len(trainloader.dataset)}, Validation samples: {len(valloader.dataset)}")
 
     # Setup wandb

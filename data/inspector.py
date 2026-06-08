@@ -60,7 +60,7 @@ class GraphVisualizer:
         all_cosines = []
         with torch.no_grad():
             for batch in dataloader:
-                all_cosines.extend(batch.cr_cr_angles.view(-1).cpu().numpy())
+                all_cosines.extend(batch.crcr_angles.view(-1).cpu().numpy())
         
         plt.figure(figsize=(8, 5))
         plt.plot(all_cosines, marker='o', linestyle='', markersize=2)
