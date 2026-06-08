@@ -52,18 +52,9 @@ class Trainer:
             loss.backward()
             self.optimizer.step()
             
-            # Instantly update metrics
+            # Update metrics
             self.train_metrics.update_loss(loss, losse, lossf, lossx, batch.num_graphs)
             self.train_metrics.update_mae(energy, forces, exchange, batch)
-
-            # self.logger.info(f"[Training]")
-            # self.logger.info(f"Sum of absolute exchange values in batch: {torch.sum(torch.abs(batch.y_exchange)).item():.4f}")
-            # self.logger.info(f"Sum of absolute predicted exchange values in batch: {torch.sum(torch.abs(exchange)).item():.4f}")
-            # self.logger.info(f"All (True exchange, Predicted exchange) values from batch: {batch.y_exchange.view(-1)}, {exchange.view(-1)}")
-            # exchangecomparison_str = "Exchange comparison (True vs Predicted):\n"
-            # for true_j, pred_j in zip(batch.y_exchange.view(-1), exchange.view(-1)):
-            #     exchangecomparison_str += f" ({true_j.item():.4f} vs {pred_j.item():.4f}) "
-            # self.logger.info(exchangecomparison_str)
 
         metrics = self.train_metrics.get_averages()
 
@@ -93,18 +84,8 @@ class Trainer:
                 forces = calcforce(energy, batch.pos)
 
                 loss, losse, lossf, lossx = self.criterion(energy, forces, exchange, batch)
-
-                # self.logger.info(f"[Validation]")
-                # self.logger.info(f"Sum of absolute exchange values in batch: {torch.sum(torch.abs(batch.y_exchange)).item():.4f}")
-                # self.logger.info(f"Sum of absolute predicted exchange values in batch: {torch.sum(torch.abs(exchange)).item():.4f}")
-
-                # exchangecomparison_str = "Exchange comparison (True vs Predicted):\n"
-                # for true_j, pred_j in zip(batch.y_exchange.view(-1), exchange.view(-1)):
-                #     exchangecomparison_str += f" ({true_j.item():.4f} vs {pred_j.item():.4f}) "
-                # self.logger.info(exchangecomparison_str)
-                # self.logger.info(f"All (True exchange, Predicted exchange) values from batch: {batch.y_exchange.view(-1)}, {exchange.view(-1)}")
-
-                # Update all metrics cleanly
+                
+                # Update all metrics
                 self.val_metrics.update_loss(loss, losse, lossf, lossx, batch.num_graphs)
                 self.val_metrics.update_mae(energy, forces, exchange, batch)
 
@@ -146,8 +127,8 @@ class Trainer:
             if (epoch + 1) % 1 == 0:
                 val_loss = self.validate_epoch(epoch)
                 
-                # if self.scheduler is not None:
-                #     self.scheduler.step(val_loss)
+                if self.scheduler is not None:
+                    self.scheduler.step(val_loss)
                 
             line = f"Epoch [{epoch+1}/{self.config.epochs}], Loss: {epochloss:.4f}, Time: {(time.time()-stime): .01f}\n" 
             self.logger.info(line)
