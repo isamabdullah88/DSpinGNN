@@ -97,11 +97,12 @@ if __name__ == "__main__":
     trainloader, valloader = data_manager.dataloaders(DATA_PATH)
     
     # 3. Run Visualizations
-    visualizer.plot_j_vs_distance(trainloader, save_path="train_j_vs_dist.png")
-    visualizer.plot_j_vs_distance(valloader, save_path="val_j_vs_dist.png")
+    # visualizer.plot_j_vs_distance(trainloader, save_path="train_j_vs_dist.png")
+    # visualizer.plot_j_vs_distance(valloader, save_path="val_j_vs_dist.png")
     
     visualizer.plot_cosines(trainloader)
-    visualizer.plot_distances(trainloader)
+    visualizer.plot_cosines(valloader)
+    # visualizer.plot_distances(trainloader)
     
     # Show all active matplotlib windows
     plt.show()
