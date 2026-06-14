@@ -5,6 +5,7 @@
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c.svg)](https://pytorch.org/)
 [![e3nn](https://img.shields.io/badge/e3nn-equivariant-blueviolet.svg)](https://e3nn.org/)
 [![ASE](https://img.shields.io/badge/ASE-dynamics-brightgreen.svg)](https://wiki.fysik.dtu.dk/ase/)
+[![arXiv](https://img.shields.io/badge/arXiv-2606.11685-b31b1b.svg)](https://arxiv.org/abs/2606.11685)
 
 This repository contains the official implementation of **DSpinGNN**, a physics-informed, E(3)-equivariant Graph Neural Network for predicting instantaneous, position-dependent isotropic magnetic exchange couplings J(r) across a dynamically deforming crystal lattice. Trained on 8-atom DFT+U primitive cells and deployed on a 3,200-atom supercell, DSpinGNN bridges the length-scale gap between first-principles quantum mechanics and mesoscale spin-lattice dynamics in strain-engineered 2D magnetic materials.
 
@@ -145,52 +146,99 @@ pip install -r requirements.txt
 | e3nn | latest | Euclidean equivariant layers |
 | ASE | latest | Atomic structure I/O and Langevin dynamics |
 | PyTorch Geometric | latest | Graph construction and batching |
+| Weights & Biases | latest | Training monitoring and experiment tracking |
 | OVITO | latest | Trajectory visualization |
 
 ---
 
 ## Usage
 
-### Training
+### 1. Train the E-GNN Structure Model
+
+The E-GNN predicts total energies and atomic forces. Train it first using `main.py` with `--modelname StructureModel`:
 
 ```bash
-python train.py \
-  --config configs/egnn_config.yaml \
-  --data_path /path/to/spindft_dataset.db \
-  --output_dir checkpoints/
+python main.py \
+  --modelname    StructureModel \
+  --datasetpath  ./DataSets/GNN/RattleGNN.pth \
+  --epochs       5000 \
+  --batch_size   32 \
+  --lr           1e-3 \
+  --project      StructureGNN \
+  --runname      Run_01 \
+  --WANDB_KEY    <your_wandb_key>
 ```
 
-Training runs for 40,000 epochs on the E-GNN branch (Adam, lr=1e-3, force weight=100) and separately on the Δ-MLP (AdamW, lr=1e-2, weight decay=0.4). See `configs/` for full hyperparameter reference.
+### 2. Train the Δ-MLP Exchange Model
 
-### Evaluation on Held-Out Test Set
+The Δ-MLP predicts per-bond exchange couplings J(r). Train it independently using `--modelname ExchangeMLP`. The GK analytical block and residual MLP parameter groups use separate learning rates automatically:
 
 ```bash
-python evaluate.py \
-  --checkpoint checkpoints/best_model.pt \
-  --test_db /path/to/test_configs.db
+python main.py \
+  --modelname    ExchangeMLP \
+  --datasetpath  ./DataSets/GNN/RattleGNN.pth \
+  --epochs       5000 \
+  --batch_size   32 \
+  --lr           1e-2 \
+  --project      ExchangeMLP \
+  --runname      Run_01 \
+  --WANDB_KEY    <your_wandb_key>
 ```
 
-### Mesoscale Simulation
+### 3. Fine-Tuning
+
+To resume training from a saved checkpoint:
 
 ```bash
-python simulate.py \
-  --checkpoint checkpoints/best_model.pt \
-  --supercell 20 20 \
-  --temperature 5.0 \
-  --timestep 5.0 \
-  --n_frames 200 \
-  --output_dir trajectories/
+python main.py \
+  --modelname  ExchangeMLP \
+  --finetune \
+  --runname    Run_02_Finetune \
+  --WANDB_KEY  <your_wandb_key>
 ```
 
-Produces per-frame exchange coupling maps, AFM Cr-fraction time series, and radial J profiles for domain wall fitting.
+Checkpoints are loaded from `./checkpoints/latest-model.pt` automatically when `--finetune` is set.
 
-### Visualization
+### 4. Running on HPC (SLURM)
+
+A pre-configured SLURM submission script is included:
 
 ```bash
-python plot_exchange_map.py --trajectory trajectories/ --frame 36
-python plot_afm_timeseries.py --trajectory trajectories/
-python fit_domain_wall.py --trajectory trajectories/ --frames 36 89
+bash hpcrun.sh
 ```
+
+Edit `hpcrun.sh` to set your partition, node count, and module paths before submitting.
+
+### 5. Mesoscale MD Simulation
+
+Once both models are trained, configure the simulation by editing the `SimConfig` block at the bottom of `mdynamics/NVTEnsemble.py`:
+
+```python
+config = SimConfig(
+    structurepath = "checkpoints/Structural/<run>/Structure-Epoch-XXXX.pt",
+    exchangepath  = "checkpoints/Exchange/<run>/Exchange-Epoch-XXXX.pt",
+    nx            = 20,           # supercell size (20×20 = 3,200 atoms)
+    ny            = 20,
+    tmpK          = 5,            # temperature in K
+    timesteps     = 1000,         # number of MD steps
+    amplitude     = 1.5,          # strain wave amplitude in Å
+    strain_type   = "biaxial"     # "biaxial", "Uniaxial_X", or "Uniaxial_Y"
+)
+```
+
+Then run:
+
+```bash
+python -m mdynamics.NVTEnsemble
+```
+
+Outputs are written to the configured `target_dir`:
+- `trajectory.xyz` — full atomic trajectory (open in OVITO)
+- `data.txt` — per-step energy, Cr-I-Cr angles, and exchange coupling values
+
+### 6. Visualization
+
+Post-processing and analysis scripts are in the `visualization/` folder. Trajectory files (`.xyz`) can be opened directly in [OVITO](https://www.ovito.org/) for per-bond exchange coupling map rendering and domain wall analysis.
 
 ---
 
@@ -198,32 +246,40 @@ python fit_domain_wall.py --trajectory trajectories/ --frames 36 89
 
 ```
 DSpinGNN/
-├── configs/              # YAML hyperparameter files for E-GNN and Δ-MLP
-├── models/
-│   ├── egnn.py           # E(3)-equivariant GNN (energy + forces)
-│   ├── delta_mlp.py      # Physics-informed Δ-MLP (exchange coupling)
-│   └── gk_block.py       # Goodenough-Kanamori analytical block
-├── data/
-│   ├── dataset.py        # ASE database loader with stratified splitting
-│   └── transforms.py     # Graph construction and feature embedding
-├── simulation/
-│   ├── langevin.py       # ASE Langevin MD driver
-│   └── strain_field.py   # Sinusoidal displacement field initializer
-├── analysis/
-│   ├── domain_wall.py    # Hyperbolic tangent fitting of radial J profiles
-│   ├── afm_fraction.py   # AFM Cr-fraction time series
-│   └── strain_tensor.py  # Voronoi-based deformation gradient analysis
-├── train.py
-├── evaluate.py
-├── simulate.py
-└── requirements.txt
+├── main.py               # Entry point: train StructureModel or ExchangeMLP
+├── logger.py             # Dual-output logger (terminal + timestamped file)
+├── hpcrun.sh             # SLURM submission script for HPC clusters
+├── requirements.txt
+│
+├── model/                # Model definitions
+│   ├── StructureGNN      # E(3)-equivariant GNN (energy + forces)
+│   └── ExchangeMLP       # Physics-informed Δ-MLP (exchange coupling)
+│
+├── train/                # Training utilities
+│   └── trainutils.py     # load_checkpoint, MultiTaskLoss, Trainer, etc.
+│
+├── data/                 # Dataset loading and management
+│   └── DatasetManager    # Stratified train/val/test splitting
+│
+├── graph/                # Graph construction
+│   └── CrI3              # CrI₃ unit cell and supercell builder
+│
+├── mdynamics/            # Molecular dynamics simulation
+│   ├── NVTEnsemble.py    # CrI3_Simulator: Langevin MD driver
+│   ├── simconfig.py      # SimConfig dataclass
+│   ├── dspingnn.py       # DSpinGNNCalculator (ASE-compatible calculator)
+│   ├── strains.py        # StrainEngineer: ripple and cell-strain modes
+│   └── tracker.py        # MaxForceTracker: per-step force monitoring
+│
+├── visualization/        # Analysis and plotting scripts
+└── server/               # Inference server utilities
 ```
 
 ---
 
 ## Tech Stack
 
-**Deep learning** — PyTorch, PyTorch Geometric, e3nn
+**Deep learning** — PyTorch, PyTorch Geometric, e3nn, Weights & Biases
 
 **First-principles** — Quantum ESPRESSO, Wannier90, TB2J (via SpinDFT)
 
@@ -249,13 +305,16 @@ If you use DSpinGNN or SpinDFT in your work, please cite:
 
 ```bibtex
 @article{balghari2026dspingnn,
-  author  = {Isam Abdullah Balghari and Muhammad Faryad and Muhammad Sabieh Anwar},
-  title   = {{DSpinGNN}: A Physics-Informed Equivariant Graph Neural Network
-             for Dynamic Magnetic Exchange Prediction in Strain-Deformed
-             Monolayer {CrI}$_3$},
-  journal = {Physical Review Materials},
-  year    = {2026},
-  note    = {Submitted},
+  author        = {Isam Abdullah Balghari and Muhammad Faryad and Muhammad Sabieh Anwar},
+  title         = {{DSpinGNN}: A Physics-Informed Equivariant Graph Neural Network
+                   for Dynamic Magnetic Exchange Prediction in Strain-Deformed
+                   Monolayer {CrI}$_3$},
+  journal       = {Physical Review Materials},
+  year          = {2026},
+  note          = {Under review},
+  eprint        = {2606.11685},
+  archivePrefix = {arXiv},
+  url           = {https://arxiv.org/abs/2606.11685},
 }
 ```
 
@@ -263,17 +322,15 @@ If you use DSpinGNN or SpinDFT in your work, please cite:
 
 ## Authors
 
-**Isam Abdullah Balghari**
+**Isam Abdullah Balghari** — *Lead developer and researcher*
 Department of Physics, LUMS
 ✉ isamabdullah88@gmail.com
 
 **Supervisor: Dr. Muhammad Sabieh Anwar**
-Department of Physics, LUMS
-[Personal](https://physlab.org/muhammad-sabieh-anwar-personal/)
+Department of Physics, LUMS — [Profile](https://physlab.org/muhammad-sabieh-anwar-personal/)
 
 **Co-supervisor: Dr. Muhammad Faryad**
-Department of Physics, LUMS
-[Personal](https://lums.edu.pk/lums_employee/4010)
+Department of Physics, LUMS — [Profile](https://lums.edu.pk/lums_employee/4010)
 
 ---
 
