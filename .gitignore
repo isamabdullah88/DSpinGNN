@@ -15,8 +15,7 @@ Results/
 DataSets/
 Outputs/
 Simulations/
-wandbkey.txt
-ServerCommands.txt
+documents/
 
 # C extensions
 *.so

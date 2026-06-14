@@ -42,7 +42,7 @@ _PUB_RC = {
     "font.family": "serif",
     "font.serif": ["Times New Roman", "Times", "DejaVu Serif"],
     "mathtext.fontset": "stix",
-    "axes.labelsize": 12,
+    "axes.labelsize": 15,
     "xtick.labelsize": 9,
     "ytick.labelsize": 9,
     "axes.linewidth": 0.8,
@@ -60,7 +60,7 @@ _PUB_RC = {
     "grid.color": "#E0E0E0",
     "grid.linewidth": 0.5,
     "legend.frameon": False,
-    "legend.fontsize": 12,
+    "legend.fontsize": 13,
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -291,7 +291,7 @@ def plot_afm_timeseries(extents, peak_idxs, out_path):
     if len(peak_idxs) > 0:
         ax.scatter(peak_idxs, extents[peak_idxs], color="#d62728", s=40, zorder=5,
                    edgecolors="white", linewidths=0.6,
-                   label="Peak interference events")
+                   label="Peak events")
                    
     ax.set_xlabel("Frame Index")
     ax.set_ylabel("AFM Cr Fraction")
@@ -318,7 +318,7 @@ def plot_radial_fit(r_nm, j_mean, j_std, popt_nm, frame_idx, cluster_idx, xi_nm,
     ax.errorbar(r_nm, j_mean, yerr=j_std, fmt="o", ms=5, color="#1f77b4",
                 mec="white", mew=0.5,
                 ecolor="#CCCCCC", elinewidth=0.6, capsize=2, capthick=0.6,
-                label="Radial profile", zorder=4)
+                zorder=4)
                 
     # Tanh fit
     # fit_label = r"Tanh fit ($\xi = {:.2f} \pm {:.2f}$ nm, $R^2 = {:.2f}$)".format(xi_nm, xi_err_nm, r2)
