@@ -1,7 +1,36 @@
-torch_geometric
-scikit-learn
-scipy
-tensorboard
+# Core deep learning
+torch
+torchvision
+torch-geometric
+torch_scatter
+torch_cluster
+torch_sparse
+torch-ema
+pytorch-lightning
 torchsummary
-ase
+
+# Equivariant ML
 e3nn
+
+# Scientific computing
+numpy
+scipy
+ase
+matscipy
+h5py
+sympy
+networkx
+scikit-learn
+
+# Data & visualization
+matplotlib
+seaborn
+pandas
+pillow
+tqdm
+
+# Config & experiment tracking
+wandb
+tensorboard
+tensorboardX
+omegaconf
