@@ -285,7 +285,7 @@ DSpinGNN/
 
 **Simulation & analysis** — ASE, OVITO, Matplotlib, NumPy, SciPy
 
-**Compute** — LUMS HPC cluster (DFT data generation), NVIDIA RTX 4090 (model training), DigitalOcean GPU droplets
+**Compute** — LUMS HPC cluster (DFT data generation), NVIDIA RTX 4090 (model training) from runpod.io, DigitalOcean GPU droplets
 
 ---
 
