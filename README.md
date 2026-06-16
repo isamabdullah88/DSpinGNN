@@ -7,13 +7,13 @@
 [![ASE](https://img.shields.io/badge/ASE-dynamics-brightgreen.svg)](https://wiki.fysik.dtu.dk/ase/)
 [![arXiv](https://img.shields.io/badge/arXiv-2606.11685-b31b1b.svg)](https://arxiv.org/abs/2606.11685)
 
-This repository contains the official implementation of **DSpinGNN**, a physics-informed, E(3)-equivariant Graph Neural Network for predicting instantaneous, position-dependent isotropic magnetic exchange couplings J(r) across a dynamically deforming crystal lattice. Trained on 8-atom DFT+U primitive cells and deployed on a 3,200-atom supercell, DSpinGNN bridges the length-scale gap between first-principles quantum mechanics and mesoscale spin-lattice dynamics in strain-engineered 2D magnetic materials.
+This repository contains the official implementation of **DSpinGNN**, a physics-informed, E(3)-equivariant Graph Neural Network for predicting instantaneous, position-dependent isotropic magnetic exchange couplings J(r) across a dynamically deforming crystal lattice. Trained on 8-atom DFT+U primitive cells and deployed on a 3,200-atom supercell, DSpinGNN bridges the system-scale (atom count) gap between first-principles quantum mechanics and mesoscale spin-lattice dynamics in strain-engineered 2D magnetic materials.
 
 ---
 
 ## Overview
 
-First-principles molecular dynamics captures quantum mechanical accuracy but is limited to ~100 atoms over picoseconds due to O(N³) scaling. Classical molecular dynamics reaches the required length and time scales but carries no representation of quantum magnetic exchange. DSpinGNN resolves both constraints simultaneously through a bifurcated architecture: an E(3)-equivariant GNN drives the structural dynamics while an independent physics-informed Δ-MLP predicts the instantaneous magnetic exchange landscape from the evolving bond geometry.
+First-principles molecular dynamics captures quantum mechanical accuracy but is limited to ~100 atoms over picoseconds due to O(N³) scaling. Classical molecular dynamics reaches the required size and time scales but carries no representation of quantum magnetic exchange. DSpinGNN resolves both constraints simultaneously through a bifurcated architecture: an E(3)-equivariant GNN drives the structural dynamics while an independent physics-informed Δ-MLP predicts the instantaneous magnetic exchange landscape from the evolving bond geometry.
 
 The Goodenough-Kanamori superexchange relationship is embedded directly as an analytical inductive bias in the exchange predictor, providing physically grounded extrapolation under extreme local deformations and making the model's predictions interpretable in terms of established quantum chemistry.
 
@@ -43,7 +43,7 @@ The 61-configuration test set was generated after all model development was comp
 
 Exchange coupling test R² = 0.91. Dataset splits were stratified across deformation mode (biaxial, uniaxial, shear) and strain magnitude to ensure each split is representative of the full deformation space.
 
-### Length-Scale Transferability — 8 → 3,200 Atoms (400×)
+### System-Scale Transferability — 8 → 3,200 Atoms (400×)
 
 Trained exclusively on 8-atom primitive cells, DSpinGNN is deployed without retraining on a 3,200-atom (20×20) supercell. E(3)-equivariance guarantees that the learned representations are invariant to rotation and translation, providing stable long-horizon dynamics without unphysical error accumulation.
 
